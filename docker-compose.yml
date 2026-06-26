@@ -1,0 +1,42 @@
+# ==================== 个人3D打印全品类物料库存系统 ====================
+# Docker Compose v2 编排文件
+# 适用于飞牛NAS (Debian 12 + Docker 28.x)
+# v3: SQLite本地存储 + 颜色色块
+
+services:
+  filament-manager:
+    container_name: filament-manager
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: filament-manager:latest
+    restart: unless-stopped
+    ports:
+      - "5088:5088"
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # 日志持久化（AI配置文件、上传临时文件）
+      - ./logs:/app/logs
+      # 数据持久化（SQLite 数据库）
+      - ./data:/app/data
+    networks:
+      - filament-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5088/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  filament-net:
+    driver: bridge

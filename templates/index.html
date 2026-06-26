@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>物料库存管理</title>
+<link rel="manifest" href="/manifest.json">
+<style>
+:root{
+  --bg:#0f172a;--bg-card:#1e293b;--bg-card-hover:#273548;
+  --text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;
+  --accent:#3b82f6;--accent-hover:#2563eb;--accent-light:rgba(59,130,246,.15);
+  --danger:#ef4444;--danger-bg:rgba(239,68,68,.1);--danger-border:rgba(239,68,68,.25);
+  --success:#10b981;--success-bg:rgba(16,185,129,.1);--success-border:rgba(16,185,129,.25);
+  --warning:#f59e0b;--warning-bg:rgba(245,158,11,.1);--warning-border:rgba(245,158,11,.25);
+  --border:#334155;--radius:12px;--radius-sm:8px;
+  --nav-height:64px;--header-height:56px;
+  --font-xs:12px;--font-sm:14px;--font-base:15px;--font-lg:18px;--font-xl:24px;
+  --shadow:0 4px 6px -1px rgba(0,0,0,.3),0 2px 4px -2px rgba(0,0,0,.3);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.3);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text-primary);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;height:100vh;display:flex;flex-direction:column;
+}
+
+/* Header */
+.header{
+  height:var(--header-height);background:var(--bg-card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;flex-shrink:0;position:sticky;top:0;z-index:100;
+}
+.header-title{font-size:var(--font-lg);font-weight:700}
+.header-actions{display:flex;gap:8px}
+.icon-btn{
+  width:36px;height:36px;border-radius:50%;border:none;background:transparent;
+  color:var(--text-secondary);font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.icon-btn:hover{background:var(--bg-card-hover);color:var(--text-primary)}
+
+/* Main Content */
+.main-content{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:12px;padding-bottom:calc(var(--nav-height) + 16px);
+  -webkit-overflow-scrolling:touch;
+}
+.page{display:none;padding:4px 0}
+.page.active{display:block}
+
+/* Cards */
+.card{background:var(--bg-card);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-title{font-size:var(--font-base);font-weight:700}
+.card-body{}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.stat-card{
+  background:var(--bg-card);border-radius:var(--radius);padding:14px 16px;
+  box-shadow:var(--shadow-sm)
+}
+.stat-value{font-size:var(--font-xl);font-weight:700;color:var(--accent)}
+.stat-label{font-size:var(--font-xs);color:var(--text-muted);margin-top:2px}
+
+/* Alerts */
+.alert-section{margin-bottom:12px}
+.alert-section-title{font-size:var(--font-sm);font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.alert-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;height:22px;border-radius:11px;
+  background:var(--danger);color:#fff;font-size:var(--font-xs);font-weight:700;padding:0 6px;
+}
+.alert-card{
+  background:var(--danger-bg);border:1px solid var(--danger-border);
+  border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;
+}
+.alert-category{font-size:var(--font-xs);color:var(--danger);font-weight:700;margin-bottom:2px}
+.alert-detail{font-size:var(--font-sm);font-weight:600}
+.alert-meta{font-size:var(--font-xs);color:var(--text-muted);margin-top:4px}
+.no-alert{color:var(--success);font-size:var(--font-sm);padding:8px 0}
+
+/* Quick Actions */
+.quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.quick-action{
+  background:var(--accent-light);border-radius:var(--radius-sm);
+  padding:16px 8px;text-align:center;cursor:pointer;transition:background .15s;
+  border:1px solid transparent;
+}
+.quick-action:hover{border-color:var(--accent)}
+.qa-icon{font-size:24px;display:block;margin-bottom:6px}
+.qa-label{font-size:var(--font-xs);color:var(--text-secondary);font-weight:600}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:10px 20px;border-radius:var(--radius-sm);
+  font-size:var(--font-sm);font-weight:600;border:none;cursor:pointer;
+  transition:all .15s;gap:6px;text-decoration:none;
+}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-secondary)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:6px 14px;font-size:var(--font-xs)}
+.btn-block{width:100%;margin-top:12px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Forms */
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:var(--font-sm);font-weight:600;color:var(--text-secondary);margin-bottom:4px}
+.form-input,.form-select,.form-textarea{
+  width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text-primary);font-size:var(--font-sm);
+  font-family:inherit;outline:none;transition:border-color .15s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-textarea{resize:vertical;min-height:60px}
+.form-hint{font-size:var(--font-xs);color:var(--text-muted);margin-top:4px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-select option{background:var(--bg);color:var(--text-primary)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+.tab{
+  padding:8px 16px;border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:var(--text-secondary);font-size:var(--font-sm);
+  cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;
+}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* Bottom Nav */
+.bottom-nav{
+  height:var(--nav-height);background:var(--bg-card);border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-around;
+  flex-shrink:0;position:fixed;bottom:0;left:0;right:0;z-index:100;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.nav-item{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;color:var(--text-muted);cursor:pointer;
+  transition:color .15s;padding:6px 12px;font-size:var(--font-xs);
+}
+.nav-item.active{color:var(--accent)}
+.nav-icon{font-size:20px}
+.nav-label{font-size:10px}
+
+/* Upload */
+.upload-area{
+  border:2px dashed var(--border);border-radius:var(--radius);
+  padding:40px 20px;text-align:center;cursor:pointer;margin-bottom:12px;
+  transition:border-color .15s;
+}
+.upload-area:hover{border-color:var(--accent)}
+.upload-icon{font-size:48px;margin-bottom:8px}
+.upload-text{font-size:var(--font-sm);color:var(--text-secondary)}
+.upload-preview{margin-bottom:12px}
+.upload-preview img{
+  max-width:100%;max-height:300px;border-radius:var(--radius-sm);
+  display:block;margin:0 auto;object-fit:contain;
+}
+
+/* Lists */
+.list-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px;border-radius:var(--radius-sm);cursor:pointer;
+  transition:background .15s;border-bottom:1px solid var(--border);
+}
+.list-item:last-child{border-bottom:none}
+.list-item:hover{background:var(--bg-card-hover)}
+.list-item-info{flex:1;min-width:0}
+.list-item-name{font-size:var(--font-sm);font-weight:600;margin-bottom:2px}
+.list-item-meta{font-size:var(--font-xs);color:var(--text-muted);display:flex;align-items:center;gap:4px}
+.list-item-badge{
+  font-size:var(--font-sm);font-weight:700;color:var(--text-primary);
+  background:var(--accent-light);padding:2px 10px;border-radius:12px;
+}
+.list-item-badge.warning{background:var(--warning-bg);color:var(--warning)}
+
+/* Status Badges */
+.status-badge{
+  display:inline-block;padding:2px 10px;border-radius:10px;
+  font-size:var(--font-xs);font-weight:600;
+}
+.status-badge.in-stock{background:var(--success-bg);color:var(--success)}
+.status-badge.used-up{background:var(--danger-bg);color:var(--danger)}
+
+/* Chips */
+.chip{
+  display:inline-block;padding:2px 8px;border-radius:10px;
+  font-size:var(--font-xs);background:var(--accent-light);color:var(--accent);
+}
+
+/* Modal */
+.modal-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.6);display:flex;align-items:flex-end;
+  z-index:200;justify-content:center;
+}
+.modal{
+  background:var(--bg-card);border-radius:var(--radius) var(--radius) 0 0;
+  width:100%;max-height:85vh;overflow-y:auto;padding:16px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.4);
+}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-title{font-size:var(--font-lg);font-weight:700}
+.modal-close{
+  background:none;border:none;color:var(--text-muted);
+  font-size:24px;cursor:pointer;padding:4px;
+}
+.modal-close:hover{color:var(--text-primary)}
+
+/* Toast */
+.toast-container{
+  position:fixed;top:var(--header-height);right:16px;z-index:300;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;
+}
+.toast{
+  background:var(--bg-card);color:var(--text-primary);
+  padding:10px 16px;border-radius:var(--radius-sm);
+  box-shadow:var(--shadow);font-size:var(--font-sm);pointer-events:auto;
+  max-width:280px;
+}
+.toast.success{border-left:3px solid var(--success)}
+.toast.error{border-left:3px solid var(--danger)}
+
+/* Empty State */
+.empty-state{text-align:center;padding:40px 20px}
+.empty-icon{font-size:48px;color:var(--text-muted);margin-bottom:8px}
+.empty-text{font-size:var(--font-sm);color:var(--text-muted)}
+
+/* Category Grid */
+.category-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.category-card{
+  background:var(--bg-card);border-radius:var(--radius);padding:16px;
+  box-shadow:var(--shadow-sm)
+}
+.category-name{font-size:var(--font-sm);font-weight:700;margin-bottom:4px}
+.category-meta{font-size:var(--font-xs);color:var(--text-muted)}
+
+/* Selected Item (Outbound) */
+.selected-item{
+  background:var(--accent-light);border:1px solid var(--accent);
+  border-radius:var(--radius-sm);padding:14px;margin-bottom:12px;
+}
+.selected-item-name{font-size:var(--font-base);font-weight:700}
+.selected-item-meta{font-size:var(--font-xs);color:var(--text-muted)}
+.selected-item-qty{font-size:var(--font-lg);font-weight:700;color:var(--accent);margin-top:4px}
+
+/* ========== Color Swatch ========== */
+.color-swatch-inline{display:inline-flex;align-items:center;gap:6px}
+.color-swatch{
+  display:inline-block;width:18px;height:18px;border-radius:50%;
+  border:2px solid var(--border);vertical-align:middle;flex-shrink:0;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.2);
+}
+.color-swatch-sm{width:14px;height:14px;border-width:1.5px}
+.color-swatch-lg{width:24px;height:24px;border-width:2px}
+.color-swatch.white-swatch{
+  border-color:var(--text-muted);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);
+}
+.color-picker-wrap{display:flex;align-items:center;gap:8px}
+.color-input-native{
+  width:36px;height:36px;border:2px solid var(--border);
+  border-radius:var(--radius-sm);cursor:pointer;padding:2px;background:var(--bg);
+}
+.color-input-native::-webkit-color-swatch-wrapper{padding:0}
+.color-input-native::-webkit-color-swatch{border-radius:6px;border:none}
+
+/* Config Status */
+.config-status{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;
+  border-radius:var(--radius-sm);font-size:var(--font-sm);margin-bottom:12px;
+}
+.config-status.configured{background:var(--success-bg);border:1px solid rgba(16,185,129,.25);color:var(--success)}
+.config-status.unconfigured{background:var(--warning-bg);border:1px solid rgba(245,158,11,.25);color:var(--warning)}
+
+/* Settings Sections */
+.settings-section{margin-bottom:24px}
+.settings-section-title{
+  font-size:var(--font-sm);font-weight:700;color:var(--text-secondary);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+}
+
+/* Loading */
+.loading{text-align:center;padding:20px}
+.spinner{
+  display:inline-block;width:24px;height:24px;
+  border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .6s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Responsive */
+@media(min-width:768px){
+  .main-content{padding:20px;padding-bottom:calc(var(--nav-height) + 20px)}
+  .page{padding:0;max-width:800px;margin:0 auto}
+  .quick-actions{grid-template-columns:repeat(3,1fr)}
+  .stats-grid{grid-template-columns:repeat(4,1fr)}
+  .form-row{grid-template-columns:1fr 1fr 1fr}
+  .category-grid{grid-template-columns:repeat(3,1fr)}
+  .modal{border-radius:var(--radius);max-width:500px;margin:auto;max-height:80vh;align-self:center}
+  .modal-overlay{align-items:center}
+}
+
+/* ===== Scanner ===== */
+.scanner-container{text-align:center;margin-bottom:16px}
+.scanner-btn{
+  display:block;width:100%;padding:18px;font-size:18px;font-weight:700;
+  background:var(--accent);color:#fff;border:none;border-radius:var(--radius);
+  cursor:pointer;transition:background .2s
+}
+.scanner-btn:hover{background:var(--accent-hover)}
+.scanner-btn.active{background:var(--danger);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+#qrReader{margin:12px auto;max-width:320px;border-radius:var(--radius);overflow:hidden}
+.scan-result-card{
+  background:var(--bg-card);border:2px solid var(--accent);border-radius:var(--radius);
+  padding:16px;margin-top:12px
+}
+.scan-result-card .sc-name{font-size:18px;font-weight:700;margin-bottom:8px}
+.scan-result-card .sc-meta{font-size:13px;color:var(--text-secondary);margin-bottom:4px}
+.scan-result-actions{margin-top:12px;display:flex;gap:8px}
+.scan-result-actions .btn{flex:1}
+
+/* ===== Filter Bar ===== */
+.filter-bar{
+  display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;
+  background:var(--bg-card);padding:10px;border-radius:var(--radius)
+}
+.filter-bar .form-input,.filter-bar .form-select{
+  flex:1;min-width:100px;padding:6px 8px;font-size:12px;
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text-primary)
+}
+.filter-bar .filter-row{display:flex;gap:8px;width:100%}
+.filter-color-swatch{
+  display:inline-block;width:18px;height:18px;border-radius:50%;
+  border:1px solid var(--border);vertical-align:middle;margin-right:4px
+}
+
+/* ===== QR Print ===== */
+.qr-print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.qr-print-cell{
+  text-align:center;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px;cursor:pointer;transition:all .2s
+}
+.qr-print-cell.selected{border-color:var(--accent);background:var(--accent-light)}
+.qr-print-cell input[type=checkbox]{display:none}
+.qr-print-cell .qr-print-label{font-size:10px;color:var(--text-secondary);margin-top:4px}
+
+/* ===== Export/Import ===== */
+.action-bar{display:flex;gap:8px;margin-bottom:12px}
+.action-bar .btn{flex:1;font-size:12px}
+.import-zone{
+  border:2px dashed var(--border);border-radius:var(--radius);
+  padding:24px;text-align:center;cursor:pointer;margin-bottom:12px;
+  transition:border-color .2s
+}
+.import-zone:hover{border-color:var(--accent)}
+.import-zone .import-icon{font-size:36px;margin-bottom:8px}
+.import-progress{margin-top:12px;font-size:13px;color:var(--text-secondary)}
+
+/* Scanner sub-section */
+.scan-sub{display:none}
+.scan-sub.open{display:block}
+</style>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-title" id="headerTitle">物料库存管理</div>
+  <div class="header-actions">
+    <button class="icon-btn" id="btnRefresh" title="刷新">&#x21bb;</button>
+  </div>
+</header>
+
+<!-- Main Content -->
+<div class="main-content" id="mainContent">
+
+  <!-- ========== 首页 ========== -->
+  <div class="page active" id="page-home">
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="alert-section">
+      <div class="alert-section-title">
+        <span>&#x26a0;&#xfe0f;</span> 低库存预警 <span class="alert-badge" id="alertCount">0</span>
+      </div>
+      <div id="alertList"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">快捷操作</span></div>
+      <div class="quick-actions">
+        <div class="quick-action" onclick="switchTab('inbound')"><span class="qa-icon">&#x1f4f7;</span><span class="qa-label">拍照入库</span></div>
+        <div class="quick-action" onclick="switchTab('inbound')"><span class="qa-icon">&#x1f399;&#xfe0f;</span><span class="qa-label">语音入库</span></div>
+        <div class="quick-action" onclick="switchTab('outbound')"><span class="qa-icon">&#x1f4e4;</span><span class="qa-label">物料出库</span></div>
+        <div class="quick-action" onclick="switchTab('inventory')"><span class="qa-icon">&#x1f50d;</span><span class="qa-label">查库存</span></div>
+        <div class="quick-action" onclick="switchTab('inbound')"><span class="qa-icon">&#x270d;&#xfe0f;</span><span class="qa-label">手动录入</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">最近入库</span>
+        <button class="btn btn-outline btn-sm" onclick="switchTab('inventory')">全部</button>
+      </div>
+      <div id="recentItems"></div>
+    </div>
+  </div>
+
+  <!-- ========== 入库页 ========== -->
+  <div class="page" id="page-inbound">
+    <div class="tabs" id="inboundTabs">
+      <button class="tab active" data-tab="photo">&#x1f4f7; 拍照AI入库</button>
+      <button class="tab" data-tab="voice">&#x1f399; 语音AI入库</button>
+      <button class="tab" data-tab="manual">&#x270d; 手动入库</button>
+    </div>
+
+    <div class="tab-content active" id="tab-photo">
+      <div class="upload-area" id="photoUploadArea">
+        <div class="upload-icon">&#x1f4f7;</div>
+        <div class="upload-text">点击拍照或选择图片</div>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+      <div class="upload-preview" id="photoPreview" style="display:none"></div>
+      <button class="btn btn-primary btn-block" id="btnPhotoRecognize" style="display:none">开始AI识别</button>
+      <div id="photoResult" style="margin-top:12px"></div>
+    </div>
+
+    <div class="tab-content" id="tab-voice">
+      <div class="card">
+        <div class="card-body" style="text-align:center;padding:24px 0">
+          <div style="font-size:48px;margin-bottom:12px">&#x1f399;&#xfe0f;</div>
+          <p style="color:var(--text-secondary);margin-bottom:16px">说出物料信息，AI自动识别</p>
+          <button class="btn btn-primary" id="btnVoiceRecord" onclick="startVoiceInput()">开始语音输入</button>
+          <p style="font-size:var(--font-xs);color:var(--text-muted);margin-top:12px">示例：「PLA线材 1.75毫米 黑色 5卷 放在A3货架」</p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">或直接输入语音转文字结果</label>
+        <textarea class="form-textarea" id="voiceTextInput" placeholder="输入语音识别文本..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="parseVoiceInbound()">AI解析</button>
+      <div id="voiceResult" style="margin-top:12px"></div>
+    </div>
+
+    <div class="tab-content" id="tab-manual">
+      <form id="manualForm" onsubmit="submitManualInbound(event)">
+        <div class="form-group">
+          <label class="form-label">物料名称 *</label>
+          <input class="form-input" id="m_name" required placeholder="如：沉头螺丝、PLA线材">
+        </div>
+        <div class="form-group">
+          <label class="form-label">物料类别 *</label>
+          <select class="form-select" id="m_category" required onchange="onCategoryChange()"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">规格参数</label>
+            <input class="form-input" id="m_spec" placeholder="如：M3x10、0.4mm">
+          </div>
+          <div class="form-group">
+            <label class="form-label">库存数量 *</label>
+            <input class="form-input" id="m_quantity" type="number" value="1" min="0" step="0.1" required>
+          </div>
+        </div>
+        <div id="filamentFields" style="display:none">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">耗材材质 *</label>
+              <select class="form-select" id="m_filament_material"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">线材颜色 *</label>
+              <div class="color-picker-wrap">
+                <select class="form-select" id="m_filament_color" onchange="onFilamentColorChange('m_filament_color','m_color_swatch','m_custom_color')" style="flex:1"></select>
+                <div id="m_color_swatch" class="color-swatch color-swatch-lg" style="display:none"></div>
+                <input type="color" id="m_custom_color" class="color-input-native" style="display:none" oninput="onCustomColorChange('m_filament_color','m_color_swatch',this)" title="自定义颜色">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">线材直径 (mm)</label>
+            <input class="form-input" id="m_filament_diameter" type="number" value="1.75" step="0.05" min="1.0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">存放位置</label>
+            <input class="form-input" id="m_location" placeholder="如：A3货架">
+          </div>
+          <div class="form-group">
+            <label class="form-label">品牌/厂家</label>
+            <input class="form-input" id="m_brand" placeholder="品牌或生产厂家">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">备注信息</label>
+          <textarea class="form-textarea" id="m_remark" rows="2" placeholder="购买渠道、注意事项等"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">确认入库</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========== 出库页 ========== -->
+  <div class="page" id="page-outbound">
+    <!-- Scan QR Section -->
+    <div class="scanner-container">
+      <button class="scanner-btn" id="scanBtn" onclick="toggleScanner()">&#x1f4f7; 扫描二维码出库</button>
+      <div id="qrReader"></div>
+      <div id="scanResult"></div>
+    </div>
+    <hr style="border-color:var(--border);margin:16px 0">
+
+    <!-- Manual Search (collapsible) -->
+    <details id="manualOutbound">
+      <summary style="cursor:pointer;color:var(--text-secondary);font-size:14px;padding:8px 0">手动搜索出库（展开）</summary>
+      <div style="margin-top:8px">
+        <div class="tabs" id="outboundTabs">
+          <button class="tab active" data-tab="filament-out">&#x1f9f5; 3D耗材</button>
+          <button class="tab" data-tab="exact-out">&#x1f4cf; 精确出库</button>
+          <button class="tab" data-tab="estimate-out">&#x1f914; 模糊出库</button>
+        </div>
+        <div class="tab-content active" id="tab-filament-out">
+          <div class="card"><div class="card-body">
+            <p style="color:var(--text-muted);font-size:var(--font-sm);margin-bottom:16px">整卷管理，出库后自动标记为「已用完」</p>
+            <div class="form-group"><label class="form-label">耗材材质 *</label><select class="form-select" id="fo_material"></select></div>
+            <div class="form-group"><label class="form-label">线材颜色 *</label>
+              <div class="color-picker-wrap">
+                <select class="form-select" id="fo_color" onchange="onFilamentColorChange('fo_color','fo_color_swatch','fo_custom_color')" style="flex:1"></select>
+                <div id="fo_color_swatch" class="color-swatch color-swatch-lg" style="display:none"></div>
+                <input type="color" id="fo_custom_color" class="color-input-native" style="display:none" oninput="onCustomColorChange('fo_color','fo_color_swatch',this)" title="自定义颜色">
+              </div></div>
+            <div class="form-group"><label class="form-label">线材直径 (mm)</label><input class="form-input" id="fo_diameter" type="number" value="1.75" step="0.05"></div>
+            <button class="btn btn-danger btn-block" onclick="outboundFilament()">确认出库（整卷用完）</button>
+          </div></div>
+          <div id="filamentInventoryList"></div>
+        </div>
+        <div class="tab-content" id="tab-exact-out">
+          <div class="card"><div class="card-body">
+            <p style="color:var(--text-muted);font-size:var(--font-sm);margin-bottom:12px">搜索物料，输入消耗数量，系统自动扣减</p>
+            <div class="form-row"><div class="form-group"><label class="form-label">搜索</label><input class="form-input" id="exactSearch" placeholder="名称、规格、品牌..." oninput="searchExactItems()"></div>
+            <div class="form-group"><label class="form-label">品类</label><select class="form-select" id="exactCategoryFilter" onchange="searchExactItems()"><option value="">全部（除耗材外）</option></select></div></div>
+            <div id="exactSelectedItem" style="display:none"></div><div id="exactItemList"></div>
+          </div></div>
+        </div>
+        <div class="tab-content" id="tab-estimate-out">
+          <div class="card"><div class="card-body">
+            <p style="color:var(--text-muted);font-size:var(--font-sm);margin-bottom:12px">搜索物料，输入剩余数量，系统自动计算消耗</p>
+            <div class="form-row"><div class="form-group"><label class="form-label">搜索</label><input class="form-input" id="estimateSearch" placeholder="名称、规格、品牌..." oninput="searchEstimateItems()"></div>
+            <div class="form-group"><label class="form-label">品类</label><select class="form-select" id="estimateCategoryFilter" onchange="searchEstimateItems()"><option value="">全部（除耗材外）</option></select></div></div>
+            <div id="estimateSelectedItem" style="display:none"></div><div id="estimateItemList"></div>
+          </div></div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ========== 库存列表 ========== -->
+  <div class="page" id="page-inventory">
+    <div class="action-bar">
+      <button class="btn btn-outline btn-sm" onclick="exportExcel()">&#x1f4e5; 导出Excel</button>
+      <button class="btn btn-outline btn-sm" onclick="openExportQRModal()">&#x1f4f6; 导出二维码</button>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-row">
+        <input class="form-input" id="invSearch" placeholder="关键词搜索..." oninput="debounceFilter()">
+        <select class="form-select" id="invCategory" onchange="loadInventory()"><option value="">全部品类</option></select>
+      </div>
+      <div class="filter-row">
+        <select class="form-select" id="invBrand" onchange="loadInventory()"><option value="">全部品牌</option></select>
+        <select class="form-select" id="invColor" onchange="loadInventory()"><option value="">全部颜色</option></select>
+        <select class="form-select" id="invStatus" onchange="loadInventory()"><option value="">全部状态</option><option value="在库">在库</option><option value="已用完">已用完</option></select>
+      </div>
+    </div>
+    <div id="inventoryList"></div>
+    <div id="invLoadMore" style="text-align:center;padding:12px"></div>
+  </div>
+
+  <!-- ========== 设置页 ========== -->
+  <div class="page" id="page-settings">
+    <div class="settings-section">
+      <div class="settings-section-title">AI API 配置</div>
+      <div id="aiConfigStatus"></div>
+      <div class="form-group">
+        <label class="form-label">API 提供商</label>
+        <select class="form-select" id="aiProvider" onchange="onAiProviderChange()">
+          <option value="">请选择提供商</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input class="form-input" id="aiApiKey" type="password" placeholder="sk-..." autocomplete="off">
+        <div class="form-hint" id="aiApiKeyHint"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">API Base URL</label>
+        <input class="form-input" id="aiBaseUrl" placeholder="https://api.deepseek.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">模型名称</label>
+        <select class="form-select" id="aiModel"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="aiUseForAsr" style="width:18px;height:18px;accent-color:var(--accent)">
+          语音识别也使用上述大模型
+        </label>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveAiConfig()">保存配置</button>
+        <button class="btn btn-outline" onclick="testAiConfig()">测试连接</button>
+      </div>
+      <div id="aiTestResult" style="margin-top:12px"></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">数据管理</div>
+      <div class="card">
+        <div style="font-size:var(--font-sm)">
+          <div style="margin-bottom:12px;font-weight:600">Excel 批量导入</div>
+          <div class="import-zone" id="importZone" onclick="document.getElementById('importFileInput').click()">
+            <div class="import-icon">&#x1f4c4;</div>
+            <div style="margin-bottom:4px">点击上传 .xlsx 或拖拽到此处</div>
+            <div style="font-size:10px;color:var(--text-muted)">仅支持 .xlsx / .xls 格式</div>
+          </div>
+          <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event)">
+          <button class="btn btn-outline btn-sm btn-block" onclick="downloadTemplate()">&#x1f4e5; 下载导入模板</button>
+          <div class="import-progress" id="importProgress"></div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">品类配置</div>
+      <div class="category-grid" id="categoryGrid"></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">系统信息</div>
+      <div class="card">
+        <div style="font-size:var(--font-sm);color:var(--text-muted)">
+          <div style="margin-bottom:8px">版本: v3</div>
+          <div style="margin-bottom:8px">数据源: 本地SQLite数据库</div>
+          <div>部署: Docker 容器化</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <button class="nav-item active" data-page="home" onclick="switchPage('home')">
+    <span class="nav-icon">&#x1f3e0;</span><span class="nav-label">首页</span>
+  </button>
+  <button class="nav-item" data-page="inbound" onclick="switchPage('inbound')">
+    <span class="nav-icon">&#x2795;</span><span class="nav-label">入库</span>
+  </button>
+  <button class="nav-item" data-page="outbound" onclick="switchPage('outbound')">
+    <span class="nav-icon">&#x2796;</span><span class="nav-label">出库</span>
+  </button>
+  <button class="nav-item" data-page="inventory" onclick="switchPage('inventory')">
+    <span class="nav-icon">&#x1f4e6;</span><span class="nav-label">库存</span>
+  </button>
+  <button class="nav-item" data-page="settings" onclick="switchPage('settings')">
+    <span class="nav-icon">&#x2699;</span><span class="nav-label">设置</span>
+  </button>
+</nav>
+
+<div class="toast-container" id="toastContainer"></div>
+<div class="modal-overlay" id="modalOverlay" style="display:none" onclick="closeModal(event)">
+  <div class="modal" id="modalContent" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+// ==================== PWA ====================
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+
+// ==================== Color Map ====================
+const COLOR_MAP = {
+  "黑色":"#000000","白色":"#FFFFFF","灰色":"#808080","透明":"#E8E8E8",
+  "红色":"#FF0000","蓝色":"#0000FF","绿色":"#00FF00","黄色":"#FFFF00",
+  "橙色":"#FFA500","紫色":"#800080","棕色":"#8B4513","粉色":"#FFC0CB",
+  "银色":"#C0C0C0","金色":"#FFD700","肤色":"#FFDAB9"
+};
+
+function getColorHex(name){return COLOR_MAP[name]||null}
+
+function colorSwatchHtml(name, sizeClass){
+  const hex=getColorHex(name);
+  if(!hex)return'';
+  const isWhite=(hex==='#FFFFFF'||hex==='#ffffff');
+  const whiteClass=isWhite?' white-swatch':'';
+  return `<span class="color-swatch${sizeClass?' '+sizeClass:''}${whiteClass}" style="background-color:${hex}" title="${name}"></span>`;
+}
+
+function filamentMetaHtml(rec){
+  let parts=[];
+  if(rec.category)parts.push(rec.category);
+  if(rec.spec)parts.push(rec.spec);
+  if(rec.brand)parts.push(rec.brand);
+  if(rec.filament_material){
+    let m=rec.filament_material;
+    const sw=colorSwatchHtml(rec.filament_color,'color-swatch-sm');
+    parts.push(m+(rec.filament_color?' '+sw+' '+rec.filament_color:''));
+    if(rec.filament_diameter)parts.push(rec.filament_diameter+'mm');
+  }
+  return parts.join(' | ');
+}
+
+// ==================== Global State ====================
+const API_BASE='';
+let appConfig=null;
+let allCategories=[];
+let currentPage='home';
+let inventoryPage=1;
+let allInventoryCache=[];
+let pendingPhotoDraft=null;
+let pendingVoiceDraft=null;
+let aiConfigData=null;
+
+// ==================== Toast ====================
+function showToast(msg,type=''){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');
+  t.className='toast '+type;t.textContent=msg;c.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300)},2500);
+}
+
+// ==================== API ====================
+async function apiGet(path){try{const r=await fetch(API_BASE+path);return await r.json()}catch(e){return{success:false,error:e.message}}}
+async function apiPost(path,data){try{const r=await fetch(API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return await r.json()}catch(e){return{success:false,error:e.message}}}
+async function apiPut(path,data){try{const r=await fetch(API_BASE+path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return await r.json()}catch(e){return{success:false,error:e.message}}}
+async function apiDelete(path){try{const r=await fetch(API_BASE+path,{method:'DELETE'});return await r.json()}catch(e){return{success:false,error:e.message}}}
+async function apiUpload(path,formData){try{const r=await fetch(API_BASE+path,{method:'POST',body:formData});return await r.json()}catch(e){return{success:false,error:e.message}}}
+
+// ==================== Navigation ====================
+function switchPage(page){
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const navEl=document.querySelector('.nav-item[data-page="'+page+'"]');
+  if(navEl)navEl.classList.add('active');
+  const titles={home:'物料库存管理',inbound:'入库管理',outbound:'出库管理',inventory:'库存列表',settings:'系统设置'};
+  document.getElementById('headerTitle').textContent=titles[page]||'物料库存管理';
+  document.getElementById('mainContent').scrollTop=0;
+  if(page==='home')loadHome();
+  else if(page==='inventory'){inventoryPage=1;loadInventory();}
+  else if(page==='outbound')loadOutboundPage();
+  else if(page==='settings'){loadSettingsPage();loadCategoriesPage();}
+}
+function switchTab(tabName){switchPage(tabName)}
+
+// ==================== Modal ====================
+function openModal(title,contentHtml){
+  document.getElementById('modalContent').innerHTML=`
+    <div class="modal-header">
+      <span class="modal-title">${title}</span>
+      <button class="modal-close" onclick="closeModalDirect()">&times;</button>
+    </div>${contentHtml}`;
+  document.getElementById('modalOverlay').style.display='flex';
+}
+function closeModal(e){if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').style.display='none'}
+function closeModalDirect(){document.getElementById('modalOverlay').style.display='none'}
+
+// ==================== Init ====================
+async function initApp(){
+  const cfg=await apiGet('/api/config');
+  if(cfg.success){
+    appConfig=cfg;
+    allCategories=cfg.categories||[];
+    populateCategorySelects();
+    populateFilamentSelects();
+    populateColorFilter();
+  }
+  loadHome();
+}
+
+function populateCategorySelects(){
+  ['m_category','invCategory'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    sel.innerHTML=id==='invCategory'?'<option value="">全部品类</option>':'<option value="">请选择品类</option>';
+    allCategories.forEach(c=>{sel.innerHTML+=`<option value="${c.name}">${c.name}</option>`});
+  });
+}
+
+function populateColorFilter(){
+  const sel=document.getElementById('invColor');
+  if(!sel)return;
+  const colors=appConfig?.filament_colors||Object.keys(COLOR_MAP);
+  colors.forEach(c=>{
+    const hex=getColorHex(c);
+    sel.innerHTML+=`<option value="${c}">${hex?'&#x2588;&#x2588; ':''}${c}</option>`;
+  });
+}
+
+function populateFilamentSelects(){
+  const materials=appConfig?.filament_materials||['PLA','PETG','ABS','ASA','TPU','尼龙','PC','PP','PLA+','其他'];
+  const colors=appConfig?.filament_colors||['黑色','白色','灰色','透明','红色','蓝色','绿色','黄色','橙色','其他'];
+  ['m_filament_material','fo_material'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    sel.innerHTML='<option value="">请选择材质</option>';
+    materials.forEach(m=>{sel.innerHTML+=`<option value="${m}">${m}</option>`});
+  });
+  ['m_filament_color','fo_color'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    sel.innerHTML='<option value="">请选择颜色</option>';
+    colors.forEach(c=>{
+      const hex=COLOR_MAP[c];
+      sel.innerHTML+=`<option value="${c}">${c}</option>`;
+    });
+  });
+}
+
+function onCategoryChange(){
+  const cat=document.getElementById('m_category').value;
+  document.getElementById('filamentFields').style.display=(cat==='3D打印耗材')?'block':'none';
+}
+
+// ==================== Color Swatch Helpers ====================
+function onFilamentColorChange(selectId,swatchId,customId){
+  const sel=document.getElementById(selectId);
+  const swEl=document.getElementById(swatchId);
+  const custEl=document.getElementById(customId);
+  if(!sel||!swEl||!custEl)return;
+  const val=sel.value;
+  if(val==='其他'){
+    swEl.style.display='none';
+    custEl.style.display='inline-block';
+  }else if(getColorHex(val)){
+    swEl.style.display='inline-block';
+    swEl.style.backgroundColor=getColorHex(val);
+    custEl.style.display='none';
+  }else{
+    swEl.style.display='none';
+    custEl.style.display='none';
+  }
+}
+
+function onCustomColorChange(selectId,swatchId,colorInput){
+  const sel=document.getElementById(selectId);
+  const swEl=document.getElementById(swatchId);
+  if(!sel||!swEl||!colorInput)return;
+  swEl.style.display='inline-block';
+  swEl.style.backgroundColor=colorInput.value;
+}
+
+// ==================== Home ====================
+async function loadHome(){
+  const[invRes,alertRes]=await Promise.all([
+    apiGet('/api/inventory/list?page_size=10'),
+    apiGet('/api/inventory/alerts')
+  ]);
+  const items=invRes.items||[];
+  const totalItems=invRes.total||0;
+  const inStock=items.filter(i=>i.status==='在库').length;
+  const usedUp=items.filter(i=>i.status==='已用完').length;
+
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-value">${totalItems}</div><div class="stat-label">物料总数</div></div>
+    <div class="stat-card"><div class="stat-value">${inStock}</div><div class="stat-label">在库</div></div>
+    <div class="stat-card"><div class="stat-value">${usedUp}</div><div class="stat-label">已用完</div></div>
+    <div class="stat-card"><div class="stat-value">${allCategories.length}</div><div class="stat-label">品类数</div></div>`;
+
+  const alerts=alertRes.items||[];
+  document.getElementById('alertCount').textContent=alerts.length;
+  const alertList=document.getElementById('alertList');
+  if(alerts.length===0){
+    alertList.innerHTML='<div class="no-alert">&#x2705; 库存充足，无预警</div>';
+  }else{
+    alertList.innerHTML=alerts.map(a=>`
+      <div class="alert-card">
+        <div class="alert-category">${a.category}</div>
+        <div class="alert-detail">${a.key}</div>
+        <div class="alert-meta">库存 ${a.total_quantity} / 阈值 ${a.threshold}（缺口 ${a.shortage}）</div>
+      </div>`).join('');
+  }
+
+  const recentList=document.getElementById('recentItems');
+  if(items.length===0){
+    recentList.innerHTML='<div class="empty-state"><div class="empty-icon">&#x1f4e6;</div><div class="empty-text">暂无物料记录</div></div>';
+  }else{
+    recentList.innerHTML=items.slice(0,5).map(i=>`
+      <div class="list-item" style="cursor:default">
+        <div class="list-item-info" onclick="showRecordDetail('${i.record_id}')" style="cursor:pointer">
+          <div class="list-item-name">${i.material_name||'未命名'}</div>
+          <div class="list-item-meta">${filamentMetaHtml(i)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <span class="status-badge ${i.status==='在库'?'in-stock':'used-up'}">${i.status||''}</span>
+          ${i.status==='在库'?`<button class="btn btn-outline btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px" onclick="event.stopPropagation();quickOutbound('${i.record_id}')">出库</button>`:''}
+          <button class="btn btn-outline btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px;color:var(--accent);border-color:var(--accent)" onclick="event.stopPropagation();quickRestock('${i.record_id}')">入库</button>
+        </div>
+      </div>`).join('');
+  }
+}
+
+// ==================== Inventory List ====================
+async function loadInventory(){
+  const keyword=document.getElementById('invSearch')?.value||'';
+  const category=document.getElementById('invCategory')?.value||'';
+  const brand=document.getElementById('invBrand')?.value||'';
+  const color=document.getElementById('invColor')?.value||'';
+  const status=document.getElementById('invStatus')?.value||'';
+
+  let url=`/api/inventory/filter?page=${inventoryPage}&page_size=30`;
+  if(category)url+=`&category=${encodeURIComponent(category)}`;
+  if(brand)url+=`&brand=${encodeURIComponent(brand)}`;
+  if(color)url+=`&color=${encodeURIComponent(color)}`;
+  if(status)url+=`&status=${encodeURIComponent(status)}`;
+  if(keyword)url+=`&keyword=${encodeURIComponent(keyword)}`;
+
+  const res=await apiGet(url);
+  const items=res.items||[];
+  // populate filter dropdowns after first load
+  if(inventoryPage===1&&res.brands){
+    const brandSel=document.getElementById('invBrand');
+    if(brandSel&&brandSel.options.length<=1){
+      res.brands.forEach(b=>{brandSel.innerHTML+=`<option value="${b}">${b}</option>`});
+    }
+  }
+  const listEl=document.getElementById('inventoryList');
+  if(inventoryPage===1&&items.length===0){
+    listEl.innerHTML='<div class="empty-state"><div class="empty-icon">&#x1f50d;</div><div class="empty-text">暂无匹配物料</div></div>';
+    return;
+  }
+  let html=items.map(i=>{
+    const statusClass=i.status==='在库'?'in-stock':'used-up';
+    const warningClass=(i.quantity||0)<=(i.threshold||5)&&i.status==='在库'?'warning':'';
+    return `
+    <div class="list-item" style="cursor:default">
+      <div class="list-item-info" onclick="showRecordDetail('${i.record_id}')" style="cursor:pointer">
+        <div class="list-item-name">${i.material_name||'未命名'}</div>
+        <div class="list-item-meta">${filamentMetaHtml(i)}</div>
+        ${i.location?`<div class="list-item-meta">&#x1f4cd; ${i.location}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <span class="list-item-badge ${warningClass}">${i.quantity||0}</span>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+          <span class="status-badge ${statusClass}">${i.status||''}</span>
+        </div>
+        ${i.status==='在库'?`<button class="btn btn-outline btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px" onclick="event.stopPropagation();quickOutbound('${i.record_id}')">出库</button>`:''}
+        <button class="btn btn-outline btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px;color:var(--accent);border-color:var(--accent)" onclick="event.stopPropagation();quickRestock('${i.record_id}')">入库</button>
+      </div>
+    </div>`;
+  }).join('');
+  listEl.innerHTML=inventoryPage===1?html:listEl.innerHTML+html;
+  document.getElementById('invLoadMore').innerHTML=(res.total>inventoryPage*30)
+    ?`<button class="btn btn-outline btn-sm" onclick="inventoryPage++;loadInventory()">加载更多</button>`:'';
+}
+
+// ==================== Record Detail ====================
+async function showRecordDetail(recordId){
+  const res=await apiGet('/api/inventory/'+recordId+'/detail');
+  if(!res.success){showToast('获取记录失败','error');return}
+  const item=res.item;
+  let extraHtml='';
+  if(item.category==='3D打印耗材'){
+    const csw=colorSwatchHtml(item.filament_color);
+    extraHtml=`
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">耗材材质</label><div style="color:var(--text-primary)">${item.filament_material||'-'}</div></div>
+        <div class="form-group"><label class="form-label">线材颜色</label><div class="color-swatch-inline"><span style="color:var(--text-primary)">${csw}${item.filament_color||'-'}</span></div></div>
+      </div>
+      <div class="form-group"><label class="form-label">线材直径</label><div style="color:var(--text-primary)">${item.filament_diameter||'-'} mm</div></div>`;
+  }
+  // 二维码图片
+  const qrHtml = item.qrcode_base64
+    ? `<div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:6px">&#x1f4f6; 物料二维码</div>
+        <img src="data:image/png;base64,${item.qrcode_base64}" style="width:140px;height:140px;border:1px solid var(--border);border-radius:8px;padding:4px">
+       </div>`
+    : '';
+  const html=`
+    <div style="margin-bottom:16px">
+      <div style="font-size:var(--font-lg);font-weight:700;margin-bottom:4px">${item.material_name||'未命名'}</div>
+      <span class="status-badge ${item.status==='在库'?'in-stock':'used-up'}">${item.status||''}</span>
+      <span class="chip" style="margin-left:8px">${item.category||''}</span>
+    </div>
+    ${qrHtml}
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">库存数量</label><div style="font-size:var(--font-xl);font-weight:700;color:var(--accent)">${item.quantity||0}</div></div>
+      <div class="form-group"><label class="form-label">预警阈值</label><div style="color:var(--text-secondary)">${item.threshold||5}</div></div>
+    </div>
+    <div class="form-group"><label class="form-label">规格参数</label><div style="color:var(--text-primary)">${item.spec||'-'}</div></div>
+    ${extraHtml}
+    <div class="form-group"><label class="form-label">存放位置</label><div style="color:var(--text-primary)">${item.location||'-'}</div></div>
+    <div class="form-group"><label class="form-label">品牌/厂家</label><div style="color:var(--text-primary)">${item.brand||'-'}</div></div>
+    <div class="form-group"><label class="form-label">备注</label><div style="color:var(--text-primary)">${item.remark||'-'}</div></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">入库日期</label><div style="color:var(--text-muted);font-size:var(--font-sm)">${item.inbound_date||'-'}</div></div>
+      <div class="form-group"><label class="form-label">最后操作</label><div style="color:var(--text-muted);font-size:var(--font-sm)">${item.last_operation_time||'-'}</div></div>
+    </div>
+    <div class="btn-group" style="margin-top:16px">
+      <button class="btn btn-danger btn-sm" onclick="deleteRecordConfirm('${item.record_id}')">删除</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">关闭</button>
+    </div>`;
+  openModal('物料详情',html);
+}
+
+async function deleteRecordConfirm(recordId){
+  if(!confirm('确定要删除这条记录吗？此操作不可撤销。'))return;
+  const res=await apiDelete('/api/record/'+recordId);
+  if(res.success){showToast('删除成功','success');closeModalDirect();loadHome();}
+  else{showToast(res.error||'删除失败','error')}
+}
+
+// ==================== Photo Inbound ====================
+document.addEventListener('DOMContentLoaded',()=>{
+  const uploadArea=document.getElementById('photoUploadArea');
+  const photoInput=document.getElementById('photoInput');
+  if(uploadArea&&photoInput){
+    uploadArea.addEventListener('click',()=>photoInput.click());
+    photoInput.addEventListener('change',handlePhotoSelect);
+  }
+  document.querySelectorAll('#inboundTabs .tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('#inboundTabs .tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('#page-inbound .tab-content').forEach(c=>c.classList.remove('active'));
+      document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+    });
+  });
+  document.querySelectorAll('#outboundTabs .tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('#outboundTabs .tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('#page-outbound .tab-content').forEach(c=>c.classList.remove('active'));
+      document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+    });
+  });
+  document.getElementById('btnRefresh').addEventListener('click',()=>{
+    if(currentPage==='home')loadHome();
+    else if(currentPage==='inventory'){inventoryPage=1;loadInventory();}
+    else if(currentPage==='categories')loadCategoriesPage();
+    else if(currentPage==='settings')loadSettingsPage();
+    else if(currentPage==='outbound')loadOutboundPage();
+  });
+  initApp();
+});
+
+function handlePhotoSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  const preview=document.getElementById('photoPreview');
+  const btn=document.getElementById('btnPhotoRecognize');
+  const reader=new FileReader();
+  reader.onload=function(ev){preview.style.display='block';preview.innerHTML=`<img src="${ev.target.result}" alt="预览">`};
+  reader.readAsDataURL(file);
+  btn.style.display='block';btn.onclick=()=>recognizePhoto(file);
+}
+
+async function recognizePhoto(file){
+  const btn=document.getElementById('btnPhotoRecognize');
+  btn.disabled=true;btn.textContent='AI识别中...';showToast('正在识别图片...');
+  const formData=new FormData();formData.append('image',file);
+  const res=await apiUpload('/api/inbound/photo',formData);
+  btn.disabled=false;btn.textContent='开始AI识别';
+  if(!res.success){showToast(res.error||'识别失败','error');return}
+  pendingPhotoDraft=res.draft;
+  showPhotoDraftConfirm(res.draft,res.raw_response);
+}
+
+function showPhotoDraftConfirm(draft,rawResponse){
+  const html=`
+    <p style="color:var(--text-muted);font-size:var(--font-sm);margin-bottom:12px">AI识别结果如下，请核对后确认或修改：</p>
+    <div class="form-group"><label class="form-label">物料名称</label><input class="form-input" id="draft_name" value="${draft.material_name||''}"></div>
+    <div class="form-group"><label class="form-label">物料类别</label><select class="form-select" id="draft_category">${allCategories.map(c=>`<option value="${c.name}" ${draft.category===c.name?'selected':''}>${c.name}</option>`).join('')}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">规格参数</label><input class="form-input" id="draft_spec" value="${draft.spec||''}"></div>
+      <div class="form-group"><label class="form-label">库存数量</label><input class="form-input" id="draft_quantity" type="number" value="${draft.quantity||1}" min="0" step="0.1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">品牌/厂家</label><input class="form-input" id="draft_brand" value="${draft.brand||''}"></div>
+    <div class="btn-group" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="confirmPhotoDraft()">确认入库</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">取消</button>
+    </div>`;
+  openModal('AI识别确认',html);
+}
+
+async function confirmPhotoDraft(){
+  const data={
+    material_name:document.getElementById('draft_name').value,
+    category:document.getElementById('draft_category').value,
+    spec:document.getElementById('draft_spec').value,
+    quantity:parseFloat(document.getElementById('draft_quantity').value)||1,
+    brand:document.getElementById('draft_brand').value,
+  };
+  const res=await apiPost('/api/inbound/manual',data);
+  if(res.success){showToast('入库成功','success');closeModalDirect();loadHome();document.getElementById('photoPreview').style.display='none';document.getElementById('btnPhotoRecognize').style.display='none'}
+  else{showToast(res.error||'入库失败','error')}
+}
+
+// ==================== Voice Inbound ====================
+function startVoiceInput(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){showToast('当前浏览器不支持语音识别，请手动输入文本','error');return}
+  const rec=new SR();rec.lang='zh-CN';rec.interimResults=false;
+  rec.onresult=function(e){document.getElementById('voiceTextInput').value=e.results[0][0].transcript;parseVoiceInbound()};
+  rec.onerror=function(e){showToast('语音识别失败: '+e.error,'error')};
+  rec.start();showToast('请说话...');
+}
+
+async function parseVoiceInbound(){
+  const text=document.getElementById('voiceTextInput').value.trim();
+  if(!text){showToast('请输入语音文本','error');return}
+  const res=await apiPost('/api/inbound/voice',{text:text,source:'web'});
+  if(!res.success){showToast(res.error||'解析失败','error');return}
+  pendingVoiceDraft=res.draft;
+  showVoiceDraftConfirm(res.draft);
+}
+
+function showVoiceDraftConfirm(draft){
+  const html=`
+    <p style="color:var(--text-muted);font-size:var(--font-sm);margin-bottom:12px">AI解析结果如下，请核对后确认入库：</p>
+    <p style="color:var(--text-muted);font-size:var(--font-xs);margin-bottom:12px">原文：${draft._raw_text||''}</p>
+    <div class="form-group"><label class="form-label">物料名称</label><input class="form-input" id="vdraft_name" value="${draft.material_name||''}"></div>
+    <div class="form-group"><label class="form-label">物料类别</label><select class="form-select" id="vdraft_category">${allCategories.map(c=>`<option value="${c.name}" ${draft.category===c.name?'selected':''}>${c.name}</option>`).join('')}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">规格参数</label><input class="form-input" id="vdraft_spec" value="${draft.spec||''}"></div>
+      <div class="form-group"><label class="form-label">数量</label><input class="form-input" id="vdraft_quantity" type="number" value="${draft.quantity||1}" min="0" step="0.1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">存放位置</label><input class="form-input" id="vdraft_location" value="${draft.location||''}"></div>
+    <div class="btn-group" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="confirmVoiceDraft()">确认入库</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">取消</button>
+    </div>`;
+  openModal('语音入库确认',html);
+}
+
+async function confirmVoiceDraft(){
+  const data={
+    material_name:document.getElementById('vdraft_name').value,
+    category:document.getElementById('vdraft_category').value,
+    spec:document.getElementById('vdraft_spec').value,
+    quantity:parseFloat(document.getElementById('vdraft_quantity').value)||1,
+    location:document.getElementById('vdraft_location').value,
+  };
+  const res=await apiPost('/api/inbound/manual',data);
+  if(res.success){showToast('入库成功','success');closeModalDirect();loadHome();document.getElementById('voiceTextInput').value='';document.getElementById('voiceResult').innerHTML=''}
+  else{showToast(res.error||'入库失败','error')}
+}
+
+// ==================== Manual Inbound ====================
+async function submitManualInbound(e){
+  e.preventDefault();
+  const data={
+    material_name:document.getElementById('m_name').value,
+    category:document.getElementById('m_category').value,
+    spec:document.getElementById('m_spec').value,
+    quantity:parseFloat(document.getElementById('m_quantity').value)||1,
+    location:document.getElementById('m_location').value,
+    brand:document.getElementById('m_brand').value,
+    remark:document.getElementById('m_remark').value,
+  };
+  if(data.category==='3D打印耗材'){
+    data.filament_material=document.getElementById('m_filament_material').value;
+    data.filament_color=document.getElementById('m_filament_color').value;
+    data.filament_diameter=parseFloat(document.getElementById('m_filament_diameter').value)||1.75;
+    // Handle custom color
+    if(data.filament_color==='其他'){
+      const customInput=document.getElementById('m_custom_color');
+      if(customInput&&customInput.style.display!=='none'){
+        data.filament_color=customInput.value;
+      }
+    }
+  }
+  const res=await apiPost('/api/inbound/manual',data);
+  if(res.success){showToast('入库成功','success');document.getElementById('manualForm').reset();document.getElementById('filamentFields').style.display='none';loadHome()}
+  else{showToast(res.error||'入库失败','error')}
+}
+
+// ==================== Outbound ====================
+async function loadOutboundPage(){
+  const filRes=await apiGet('/api/inventory/list?category=3D打印耗材&status=在库&page_size=50');
+  const filItems=(filRes.items||[]).filter(i=>i.status==='在库');
+  const filListEl=document.getElementById('filamentInventoryList');
+  if(filItems.length===0){
+    filListEl.innerHTML='<div class="empty-state"><div class="empty-text">暂无在库3D耗材</div></div>';
+  }else{
+    filListEl.innerHTML='<div style="margin-top:12px"><div class="card-title" style="margin-bottom:8px">当前在库3D耗材</div>'+filItems.map(i=>{
+      const sw=colorSwatchHtml(i.filament_color);
+      return `<div class="list-item" style="font-size:var(--font-sm)">
+        <div class="list-item-info"><span>${i.filament_material||''} ${sw}${i.filament_color||''} ${i.filament_diameter||1.75}mm</span></div>
+        <span class="status-badge in-stock">在库</span>
+      </div>`;
+    }).join('')+'</div>';
+  }
+  const allRes=await apiGet('/api/inventory/list?status=在库&page_size=100');
+  allInventoryCache=(allRes.items||[]).filter(i=>i.status==='在库');
+  // Populate category filter dropdowns
+  const nonFilamentCats=allCategories.filter(c=>c.name!=='3D打印耗材');
+  const catOpts='<option value="">全部（除耗材外）</option>'+nonFilamentCats.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  const exactCatEl=document.getElementById('exactCategoryFilter');
+  const estCatEl=document.getElementById('estimateCategoryFilter');
+  if(exactCatEl)exactCatEl.innerHTML=catOpts;
+  if(estCatEl)estCatEl.innerHTML=catOpts;
+  renderExactItems(allInventoryCache);
+  renderEstimateItems(allInventoryCache);
+}
+
+function renderExactItems(items){
+  const el=document.getElementById('exactItemList');
+  if(items.length===0){el.innerHTML='<div class="empty-state"><div class="empty-text">暂无可出库物料</div></div>';return}
+  el.innerHTML=items.map(i=>`
+    <div class="list-item" onclick="selectExactItem('${i.record_id}')">
+      <div class="list-item-info">
+        <div class="list-item-name">${i.material_name||'未命名'} ${i.brand?`<span style="color:var(--accent);font-size:var(--font-xs)">[${i.brand}]</span>`:''}</div>
+        <div class="list-item-meta">${filamentMetaHtml(i)} | 库存: <b>${i.quantity||0}</b></div>
+      </div>
+      <span class="list-item-badge">${i.quantity||0}</span>
+    </div>`).join('');
+}
+
+function renderEstimateItems(items){
+  const el=document.getElementById('estimateItemList');
+  if(items.length===0){el.innerHTML='<div class="empty-state"><div class="empty-text">暂无可出库物料</div></div>';return}
+  el.innerHTML=items.map(i=>`
+    <div class="list-item" onclick="selectEstimateItem('${i.record_id}')">
+      <div class="list-item-info">
+        <div class="list-item-name">${i.material_name||'未命名'} ${i.brand?`<span style="color:var(--accent);font-size:var(--font-xs)">[${i.brand}]</span>`:''}</div>
+        <div class="list-item-meta">${filamentMetaHtml(i)} | 库存: <b>${i.quantity||0}</b></div>
+      </div>
+      <span class="list-item-badge">${i.quantity||0}</span>
+    </div>`).join('');
+}
+
+function searchExactItems(){
+  const kw=document.getElementById('exactSearch').value.toLowerCase();
+  const catFilter=(document.getElementById('exactCategoryFilter')?.value)||'';
+  const filtered=allInventoryCache.filter(i=>{
+    if(catFilter&&catFilter!=='all'&&(i.category||'')!==catFilter)return false;
+    // Exclude filament as it has dedicated tab
+    if((i.category||'')==='3D打印耗材')return false;
+    return (i.material_name||'').toLowerCase().includes(kw)||
+      (i.spec||'').toLowerCase().includes(kw)||
+      (i.category||'').toLowerCase().includes(kw)||
+      (i.brand||'').toLowerCase().includes(kw);
+  });
+  renderExactItems(filtered);
+}
+
+function searchEstimateItems(){
+  const kw=document.getElementById('estimateSearch').value.toLowerCase();
+  const catFilter=(document.getElementById('estimateCategoryFilter')?.value)||'';
+  const filtered=allInventoryCache.filter(i=>{
+    if(catFilter&&catFilter!=='all'&&(i.category||'')!==catFilter)return false;
+    if((i.category||'')==='3D打印耗材')return false;
+    return (i.material_name||'').toLowerCase().includes(kw)||
+      (i.spec||'').toLowerCase().includes(kw)||
+      (i.category||'').toLowerCase().includes(kw)||
+      (i.brand||'').toLowerCase().includes(kw);
+  });
+  renderEstimateItems(filtered);
+}
+
+function selectExactItem(recordId){
+  const item=allInventoryCache.find(i=>i.record_id===recordId);if(!item)return;
+  const selEl=document.getElementById('exactSelectedItem');
+  selEl.style.display='block';
+  selEl.innerHTML=`
+    <div class="selected-item">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="selected-item-name">${item.material_name||'未命名'} ${item.brand?`<span style="color:var(--accent);font-size:var(--font-xs)">[${item.brand}]</span>`:''}</div>
+          <div class="selected-item-meta">${filamentMetaHtml(item)} | 位置: ${item.location||'未指定'}</div>
+          <div class="selected-item-qty">当前库存: ${item.quantity||0}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearExactSelection()">取消</button>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">消耗数量 *</label>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="exactConsumedQty" type="number" min="0.1" max="${item.quantity}" step="0.1" placeholder="输入消耗数量" style="flex:1">
+          <button class="btn btn-danger" onclick="doExactOutbound('${item.record_id}')">确认出库</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function clearExactSelection(){document.getElementById('exactSelectedItem').style.display='none'}
+
+async function doExactOutbound(recordId){
+  const qtyInput=document.getElementById('exactConsumedQty');
+  const consumed=parseFloat(qtyInput?.value);
+  if(!consumed||consumed<=0){showToast('请输入有效的消耗数量','error');return}
+  const res=await apiPost('/api/outbound/exact',{record_id:recordId,consumed:consumed});
+  if(res.success){showToast(`出库成功，消耗 ${consumed}，剩余 ${res.remaining}`,'success');clearExactSelection();loadOutboundPage()}
+  else{showToast(res.error||'出库失败','error')}
+}
+
+function selectEstimateItem(recordId){
+  const item=allInventoryCache.find(i=>i.record_id===recordId);if(!item)return;
+  const selEl=document.getElementById('estimateSelectedItem');
+  selEl.style.display='block';
+  selEl.innerHTML=`
+    <div class="selected-item">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="selected-item-name">${item.material_name||'未命名'} ${item.brand?`<span style="color:var(--accent);font-size:var(--font-xs)">[${item.brand}]</span>`:''}</div>
+          <div class="selected-item-meta">${filamentMetaHtml(item)} | 位置: ${item.location||'未指定'}</div>
+          <div class="selected-item-qty">当前库存: ${item.quantity||0}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearEstimateSelection()">取消</button>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">剩余数量 *</label>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="estimateRemainingQty" type="number" min="0" max="${item.quantity}" step="0.1" placeholder="输入剩余数量" style="flex:1">
+          <button class="btn btn-outline" style="border-color:var(--warning);color:var(--warning)" onclick="doEstimateOutbound('${item.record_id}')">确认出库</button>
+        </div>
+        <div class="form-hint">当前库存 ${item.quantity}，系统将自动计算消耗 = 当前库存 - 剩余</div>
+      </div>
+    </div>`;
+}
+
+function clearEstimateSelection(){document.getElementById('estimateSelectedItem').style.display='none'}
+
+async function doEstimateOutbound(recordId){
+  const qtyInput=document.getElementById('estimateRemainingQty');
+  const remaining=parseFloat(qtyInput?.value);
+  if(isNaN(remaining)||remaining<0){showToast('请输入有效的剩余数量','error');return}
+  const res=await apiPost('/api/outbound/estimate',{record_id:recordId,remaining:remaining});
+  if(res.success){showToast(`出库成功，消耗 ${res.consumed}，剩余 ${res.remaining}`,'success');clearEstimateSelection();loadOutboundPage()}
+  else{showToast(res.error||'出库失败','error')}
+}
+
+// ==================== Filament Outbound ====================
+async function outboundFilament(){
+  const material=document.getElementById('fo_material').value;
+  let color=document.getElementById('fo_color').value;
+  const diameter=document.getElementById('fo_diameter').value||'1.75';
+  if(!material||!color){showToast('请选择材质和颜色','error');return}
+  // Handle custom color
+  if(color==='其他'){
+    const customInput=document.getElementById('fo_custom_color');
+    if(customInput&&customInput.style.display!=='none')color=customInput.value;
+  }
+  if(!confirm(`确认将 ${material} ${color} ${diameter}mm 出库？\n整卷标记为「已用完」。`))return;
+  const res=await apiPost('/api/outbound/filament',{filament_material:material,filament_color:color,filament_diameter:diameter});
+  if(res.success){showToast('3D耗材出库成功','success');loadOutboundPage()}
+  else{showToast(res.error||'出库失败','error')}
+}
+
+// ==================== Quick Outbound (from inventory list) ====================
+async function quickOutbound(recordId){
+  const res=await apiGet('/api/record/'+recordId);
+  if(!res.success||!res.item){showToast('获取物料信息失败','error');return}
+  const item=res.item;
+  if(item.status!=='在库'){showToast('该物料已用完，无法出库','error');return}
+
+  if(item.category==='3D打印耗材'){
+    // Filament: whole roll outbound
+    if(!confirm(`确认将 ${item.filament_material||''} ${item.filament_color||''} ${item.filament_diameter||1.75}mm 出库？\n整卷标记为「已用完」。`))return;
+    const outRes=await apiPost('/api/outbound/filament',{
+      filament_material:item.filament_material,
+      filament_color:item.filament_color,
+      filament_diameter:item.filament_diameter
+    });
+    if(outRes.success){showToast('3D耗材出库成功','success')}
+    else{showToast(outRes.error||'出库失败','error')}
+  }else{
+    // Non-filament: exact + estimate options
+    const sw=colorSwatchHtml(item.filament_color);
+    const meta=filamentMetaHtml(item);
+    const html=`
+      <div class="selected-item">
+        <div class="selected-item-name">${item.material_name||'未命名'} ${item.brand?`<span style="color:var(--accent);font-size:var(--font-xs)">[${item.brand}]</span>`:''}</div>
+        <div class="selected-item-meta">${meta} | 位置: ${item.location||'未指定'}</div>
+        <div class="selected-item-qty">当前库存: <b>${item.quantity||0}</b></div>
+        <div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border-radius:6px">
+          <div style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:8px">精确出库（输入消耗数量）</div>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="qo_exact_qty" type="number" min="0.1" max="${item.quantity}" step="0.1" placeholder="消耗数量" style="flex:1">
+            <button class="btn btn-danger btn-sm" onclick="doQuickExact('${recordId}')">确认</button>
+          </div>
+        </div>
+        <div style="margin-top:8px;padding:12px;background:var(--bg-secondary);border-radius:6px">
+          <div style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:8px">模糊出库（输入剩余数量）</div>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="qo_est_qty" type="number" min="0" max="${item.quantity}" step="0.1" placeholder="剩余数量" style="flex:1">
+            <button class="btn btn-outline btn-sm" style="border-color:var(--warning);color:var(--warning)" onclick="doQuickEstimate('${recordId}',${item.quantity})">确认</button>
+          </div>
+        </div>
+      </div>`;
+    openModal('快速出库',html);
+  }
+}
+
+async function doQuickExact(recordId){
+  const qty=parseFloat(document.getElementById('qo_exact_qty')?.value);
+  if(!qty||qty<=0){showToast('请输入有效的消耗数量','error');return}
+  const res=await apiPost('/api/outbound/exact',{record_id:recordId,consumed:qty});
+  if(res.success){showToast(`出库成功，消耗 ${qty}，剩余 ${res.remaining}`,'success');closeModalDirect();loadHome();if(currentPage==='inventory')loadInventory()}
+  else{showToast(res.error||'出库失败','error')}
+}
+
+async function doQuickEstimate(recordId,currentQty){
+  const qty=parseFloat(document.getElementById('qo_est_qty')?.value);
+  if(isNaN(qty)||qty<0){showToast('请输入有效的剩余数量','error');return}
+  const consumed=currentQty-qty;
+  if(!confirm(`确认出库：当前库存 ${currentQty}，剩余 ${qty}，消耗 ${consumed.toFixed(1)}？`))return;
+  const res=await apiPost('/api/outbound/estimate',{record_id:recordId,remaining:qty});
+  if(res.success){showToast(`出库成功，消耗 ${res.consumed}，剩余 ${res.remaining}`,'success');closeModalDirect();loadHome();if(currentPage==='inventory')loadInventory()}
+  else{showToast(res.error||'出库失败','error')}
+}
+
+// ==================== Quick Restock (from inventory list) ====================
+async function quickRestock(recordId){
+  const res=await apiGet('/api/record/'+recordId);
+  if(!res.success||!res.item){showToast('获取物料信息失败','error');return}
+  const item=res.item;
+  const meta=filamentMetaHtml(item);
+  const html=`
+    <div class="selected-item">
+      <div class="selected-item-name">${item.material_name||'未命名'} ${item.brand?`<span style="color:var(--accent);font-size:var(--font-xs)">[${item.brand}]</span>`:''}</div>
+      <div class="selected-item-meta">${meta} | 位置: ${item.location||'未指定'}</div>
+      <div class="selected-item-qty">当前库存: <b>${item.quantity||0}</b></div>
+      <div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border-radius:6px">
+        <div style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:8px">输入本次入库数量</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="restock_qty" type="number" min="0.1" step="0.1" placeholder="新增数量" style="flex:1">
+          <button class="btn btn-primary btn-sm" onclick="doQuickRestock('${recordId}')">确认入库</button>
+        </div>
+      </div>
+    </div>`;
+  openModal('快速入库',html);
+}
+
+async function doQuickRestock(recordId){
+  const qty=parseFloat(document.getElementById('restock_qty')?.value);
+  if(!qty||qty<=0){showToast('请输入有效的入库数量','error');return}
+  const res=await apiPost('/api/inventory/restock',{record_id:recordId,added:qty});
+  if(res.success){showToast(`入库成功，新增 ${qty}，当前库存 ${res.quantity}`,'success');closeModalDirect();loadHome();if(currentPage==='inventory')loadInventory()}
+  else{showToast(res.error||'入库失败','error')}
+}
+
+// ==================== Categories ====================
+function loadCategoriesPage(){
+  const grid=document.getElementById('categoryGrid');
+  if(!allCategories.length){grid.innerHTML='<div class="empty-state"><div class="empty-text">未获取到品类配置</div></div>';return}
+  grid.innerHTML=allCategories.map(c=>`
+    <div class="category-card">
+      <div class="category-name">${c.name}</div>
+      <div class="category-meta">默认预警阈值: ${c.default_threshold}</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%" onclick="editThreshold('${c.name}',${c.default_threshold})">修改阈值</button>
+    </div>`).join('');
+}
+
+async function editThreshold(catName,curThreshold){
+  const newTh=prompt(`${catName} - 当前预警阈值: ${curThreshold}\n请输入新阈值:`);
+  if(!newTh||isNaN(parseInt(newTh))||parseInt(newTh)<0)return;
+  const res=await apiPut('/api/categories/threshold',{category:catName,threshold:parseInt(newTh)});
+  if(res.success){showToast('阈值更新成功','success');const c=allCategories.find(x=>x.name===catName);if(c)c.default_threshold=parseInt(newTh);loadCategoriesPage()}
+  else{showToast(res.error||'更新失败','error')}
+}
+
+// ==================== Settings ====================
+async function loadSettingsPage(){
+  const res=await apiGet('/api/config/ai');
+  if(!res.success){document.getElementById('aiConfigStatus').innerHTML='<div class="config-status unconfigured">无法获取AI配置</div>';return}
+  aiConfigData=res;
+  const providerSel=document.getElementById('aiProvider');
+  providerSel.innerHTML='<option value="">请选择提供商</option>';
+  const providers=res.providers||{};
+  for(const[key,info]of Object.entries(providers)){
+    providerSel.innerHTML+=`<option value="${key}" ${res.config.provider===key?'selected':''}>${info.name}</option>`;
+  }
+  document.getElementById('aiApiKey').value=res.config.api_key||'';
+  document.getElementById('aiBaseUrl').value=res.config.api_base_url||'';
+  document.getElementById('aiUseForAsr').checked=res.config.use_for_asr||false;
+  updateApiKeyHint();onAiProviderChange();
+  updateAiConfigStatus(res);
+  document.getElementById('aiTestResult').innerHTML='';
+}
+
+function updateAiConfigStatus(data){
+  const statusEl=document.getElementById('aiConfigStatus');
+  if(data.ai_configured){
+    const pName=data.providers?.[data.config.provider]?.name||data.config.provider;
+    statusEl.innerHTML=`<div class="config-status configured">AI 已配置: ${pName} / ${data.config.model||'N/A'}</div>`;
+  }else if(data.config.provider&&!data.config.has_api_key){
+    statusEl.innerHTML='<div class="config-status unconfigured">请填写 API Key 后保存</div>';
+  }else{
+    statusEl.innerHTML='<div class="config-status unconfigured">尚未配置 AI API</div>';
+  }
+}
+
+function updateApiKeyHint(){
+  const keyVal=document.getElementById('aiApiKey').value;
+  const hintEl=document.getElementById('aiApiKeyHint');
+  if(keyVal&&keyVal.includes('****')){hintEl.textContent='已保存 API Key（仅显示脱敏值）';hintEl.style.color='var(--warning)'}
+  else if(keyVal){hintEl.textContent='新 API Key 将被加密存储';hintEl.style.color='var(--success)'}
+  else{hintEl.textContent='请输入您的 API Key';hintEl.style.color='var(--text-muted)'}
+}
+
+function onAiProviderChange(){
+  const provider=document.getElementById('aiProvider').value;
+  const modelSel=document.getElementById('aiModel');
+  const baseUrlInput=document.getElementById('aiBaseUrl');
+  modelSel.innerHTML='';
+  if(provider&&aiConfigData?.providers?.[provider]){
+    const info=aiConfigData.providers[provider];
+    if(info.base_url&&!baseUrlInput.value)baseUrlInput.value=info.base_url;
+    const customModel=aiConfigData.config.model;
+    let modelSet=new Set(info.models||[]);if(customModel)modelSet.add(customModel);
+    const models=[...modelSet];
+    models.forEach(m=>{
+      const sel=(m===customModel||m===info.default_model)?'selected':'';
+      modelSel.innerHTML+=`<option value="${m}" ${sel}>${m}</option>`;
+    });
+  }
+  if(modelSel.options.length===0){
+    const cm=aiConfigData?.config?.model||'';
+    modelSel.innerHTML=`<option value="${cm}">${cm||'请输入模型名称'}</option>`;
+  }
+}
+
+async function saveAiConfig(){
+  const provider=document.getElementById('aiProvider').value;
+  const apiKey=document.getElementById('aiApiKey').value.trim();
+  const baseUrl=document.getElementById('aiBaseUrl').value.trim();
+  const model=document.getElementById('aiModel').value;
+  const useForAsr=document.getElementById('aiUseForAsr').checked;
+  if(!provider){showToast('请选择AI提供商','error');return}
+  if(!apiKey){showToast('请输入 API Key','error');return}
+  if(!model){showToast('请选择或输入模型名称','error');return}
+  const payload={provider,api_key:apiKey,api_base_url:baseUrl,model,use_for_asr:useForAsr};
+  const res=await apiPut('/api/config/ai',payload);
+  if(res.success){showToast('AI 配置已保存','success');loadSettingsPage()}
+  else{showToast(res.error||'保存失败','error')}
+}
+
+async function testAiConfig(){
+  const btn=event.target;btn.disabled=true;btn.textContent='测试中...';
+  const resultEl=document.getElementById('aiTestResult');
+  resultEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const res=await apiPost('/api/config/ai/test',{});
+  btn.disabled=false;btn.textContent='测试连接';
+  if(res.success)resultEl.innerHTML=`<div class="config-status configured">连接测试成功: ${res.response||''}</div>`;
+  else resultEl.innerHTML=`<div class="config-status unconfigured">连接测试失败: ${res.error||'未知错误'}</div>`;
+}
+
+// ==================== QR Scanner ====================
+let html5QrCode=null;
+async function toggleScanner(){
+  const reader=document.getElementById('qrReader');
+  if(reader.style.display==='block'){stopScanner();return}
+  if(!html5QrCode){
+    try{html5QrCode=new Html5Qrcode("qrReader")}catch(e){
+      // Html5Qrcode not loaded yet
+    }
+  }
+  const scanBtn=document.getElementById('scanBtn');
+  scanBtn.textContent='正在启动摄像头...';
+  try{
+    reader.style.display='block';
+    await html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:250}},
+      (decodedText)=>{onQRScanned(decodedText);stopScanner()},
+      ()=>{});
+    scanBtn.textContent='&#x1f4f7; 扫描中...点击停止';
+  }catch(e){
+    scanBtn.textContent='&#x1f4f7; 扫描二维码出库';
+    reader.style.display='none';
+    showToast('无法打开摄像头:'+e.message,'error');
+  }
+}
+
+function stopScanner(){
+  if(html5QrCode){
+    html5QrCode.stop().catch(()=>{});
+  }
+  document.getElementById('qrReader').style.display='none';
+  document.getElementById('scanBtn').textContent='&#x1f4f7; 扫描二维码出库';
+}
+
+async function onQRScanned(recordId){
+  const resultEl=document.getElementById('scanResult');
+  const res=await apiGet('/api/record/'+recordId);
+  if(!res.success||!res.item){
+    resultEl.innerHTML=`<div class="empty-state"><div class="empty-text">未找到物料: ${recordId}</div></div>`;
+    return;
+  }
+  const item=res.item;
+  const statusClass=item.status==='在库'?'in-stock':'used-up';
+  const csw=colorSwatchHtml(item.filament_color);
+  if(item.category==='3D打印耗材'&&item.status==='在库'){
+    resultEl.innerHTML=`
+      <div class="card" style="margin-top:12px">
+        <div class="card-body">
+          <div style="font-weight:700;margin-bottom:4px">${item.material_name||'未命名'}</div>
+          <div class="list-item-meta">${item.brand?'['+item.brand+'] ':''}${csw}${item.filament_color||''} ${item.filament_material||''} ${item.filament_diameter||''}mm</div>
+          <div class="list-item-meta">&#x1f4e6; 库存: ${item.quantity||0}</div>
+          <div class="list-item-meta"><span class="status-badge ${statusClass}">${item.status||''}</span></div>
+          <button class="btn btn-danger btn-block" style="margin-top:8px" onclick="confirmFilamentOut('${item.record_id}')">确认整卷出库（已用完）</button>
+        </div>
+      </div>`;
+  }else if(item.status==='在库'){
+    resultEl.innerHTML=`
+      <div class="card" style="margin-top:12px">
+        <div class="card-body">
+          <div style="font-weight:700;margin-bottom:4px">${item.material_name||'未命名'}</div>
+          <div class="list-item-meta">${item.brand?'['+item.brand+'] ':''}${item.category||''} ${item.spec||''}</div>
+          <div class="list-item-meta">&#x1f4e6; 库存: ${item.quantity||0}</div>
+          <div class="list-item-meta"><span class="status-badge ${statusClass}">${item.status||''}</span></div>
+          <div style="margin-top:8px">
+            <div class="form-group"><label class="form-label">消耗数量（精确出库）</label><input class="form-input" id="qrExactQty" type="number" min="1" max="${item.quantity||1}" value="1"></div>
+            <button class="btn btn-danger btn-block" onclick="doQRExact('${item.record_id}')">确认精确出库</button>
+          </div>
+          <hr style="border-color:var(--border);margin:12px 0">
+          <div style="margin-top:8px">
+            <div class="form-group"><label class="form-label">剩余数量（模糊出库）</label><input class="form-input" id="qrEstimateQty" type="number" min="0" max="${(item.quantity||1)-1}" value="${Math.max(0,(item.quantity||1)-1)}"></div>
+            <button class="btn btn-outline btn-block" onclick="doQREstimate('${item.record_id}')">确认模糊出库</button>
+          </div>
+        </div>
+      </div>`;
+  }else{
+    resultEl.innerHTML=`<div class="empty-state"><div class="empty-text">该物料已用完，无需出库</div></div>`;
+  }
+}
+
+async function confirmFilamentOut(id){
+  const res=await apiPost('/api/outbound/filament',{record_id:id});
+  if(res.success){showToast('整卷出库成功','success');loadHome()}
+  else showToast(res.error||'出库失败','error');
+  document.getElementById('scanResult').innerHTML='';
+}
+
+async function doQRExact(id){
+  const qty=parseInt(document.getElementById('qrExactQty').value)||0;
+  if(qty<=0){showToast('请输入有效的消耗数量','error');return}
+  const res=await apiPost('/api/outbound/exact',{record_id:id,consumed_quantity:qty});
+  if(res.success){showToast('出库成功','success');loadHome()}
+  else showToast(res.error||'出库失败','error');
+  document.getElementById('scanResult').innerHTML='';
+}
+
+async function doQREstimate(id){
+  const qty=parseInt(document.getElementById('qrEstimateQty').value)||0;
+  const res=await apiPost('/api/outbound/estimate',{record_id:id,remaining_quantity:qty});
+  if(res.success){showToast('出库成功','success');loadHome()}
+  else showToast(res.error||'出库失败','error');
+  document.getElementById('scanResult').innerHTML='';
+}
+
+// ==================== Debounced Filter ====================
+let filterTimer=null;
+function debounceFilter(){
+  clearTimeout(filterTimer);
+  filterTimer=setTimeout(()=>{inventoryPage=1;loadInventory()},300);
+}
+
+// ==================== Export & Import ====================
+function exportExcel(){
+  const category=document.getElementById('invCategory')?.value||'';
+  const brand=document.getElementById('invBrand')?.value||'';
+  const color=document.getElementById('invColor')?.value||'';
+  const status=document.getElementById('invStatus')?.value||'';
+  const keyword=document.getElementById('invSearch')?.value||'';
+  let url='/api/inventory/export?';
+  if(category)url+=`category=${encodeURIComponent(category)}&`;
+  if(brand)url+=`brand=${encodeURIComponent(brand)}&`;
+  if(color)url+=`color=${encodeURIComponent(color)}&`;
+  if(status)url+=`status=${encodeURIComponent(status)}&`;
+  if(keyword)url+=`keyword=${encodeURIComponent(keyword)}&`;
+  window.open(url,'_blank');
+}
+
+function downloadTemplate(){
+  window.open('/api/inventory/template','_blank');
+}
+
+async function handleImportFile(e){
+  const file=e.target.files[0];
+  if(!file){return}
+  const progEl=document.getElementById('importProgress');
+  progEl.innerHTML='<div class="loading"><div class="spinner"></div> 正在导入...</div>';
+  const formData=new FormData();
+  formData.append('file',file);
+  const res=await apiUpload('/api/inventory/import',formData);
+  if(res.success){
+    progEl.innerHTML=`<div class="config-status configured">导入成功: ${res.imported||0} 条新增, ${res.skipped||0} 条跳过</div>`;
+    if(currentPage==='inventory'){inventoryPage=1;loadInventory()}
+    if(currentPage==='home')loadHome();
+  }else{
+    progEl.innerHTML=`<div class="config-status unconfigured">导入失败: ${res.error||'未知错误'}</div>`;
+  }
+  e.target.value='';
+}
+
+// ==================== QR Export ====================
+async function openExportQRModal(){
+  let html='<div style="font-size:var(--font-sm);margin-bottom:8px;color:var(--text-muted)">导出为 Excel（每行含二维码图片）</div>';
+  html+='<div style="font-size:var(--font-sm);margin-bottom:12px;color:var(--text-muted)">选择需要导出的物料</div>';
+  const invEl=document.getElementById('inventoryList');
+  const items=invEl.querySelectorAll('.list-item');
+  items.forEach(el=>{
+    const infoEl=el.querySelector('.list-item-info');
+    const onclick=infoEl.getAttribute('onclick');
+    const match=onclick&&onclick.match(/showRecordDetail\('([^']+)'\)/);
+    if(match){
+      const id=match[1];
+      const nameEl=el.querySelector('.list-item-name');
+      const name=nameEl?nameEl.textContent:'';
+      html+=`<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+        <input type="checkbox" class="qr-print-check" value="${id}" data-name="${name}" onchange="updateExportQRBtn()">
+        <span style="font-size:var(--font-sm)">${name}</span></label>`;
+    }
+  });
+  html+=`<button class="btn btn-primary btn-block" id="exportQRBtn" style="margin-top:12px;display:none" onclick="exportQRSelected()">导出 Excel</button>`;
+  openModal('导出二维码',html);
+}
+
+function updateExportQRBtn(){
+  const checks=document.querySelectorAll('.qr-print-check:checked');
+  const btn=document.getElementById('exportQRBtn');
+  if(btn)btn.style.display=checks.length>0?'block':'none';
+}
+
+async function exportQRSelected(){
+  const checks=document.querySelectorAll('.qr-print-check:checked');
+  const ids=Array.from(checks).map(c=>c.value);
+  if(ids.length===0){showToast('请选择物料','error');return}
+  try{
+    const res=await fetch('/api/qrcode/export',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ids:ids,format:'xlsx'})
+    });
+    if(!res.ok){
+      const err=await res.json();
+      showToast(err.error||'导出失败','error');return;
+    }
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`qr_codes.${fmt}`;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    closeModal();
+    showToast('导出成功','success');
+  }catch(e){
+    showToast('导出失败: '+e.message,'error');
+  }
+}
+
+// Drag & drop for import
+document.addEventListener('DOMContentLoaded',()=>{
+  const zone=document.getElementById('importZone');
+  if(zone){
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over')});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();zone.classList.remove('drag-over');
+      const file=e.dataTransfer.files[0];
+      if(file){
+        const input=document.getElementById('importFileInput');
+        const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;
+        handleImportFile({target:input});
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
