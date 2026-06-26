@@ -40,8 +40,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "filament-manager-secret-key-change-me")
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
+if not app.secret_key:
+    logger.warning("⚠️ FLASK_SECRET_KEY 未设置！请在生产环境中设置一个随机密钥。")
+    app.secret_key = "dev-secret-key-insecure"
+
 CORS(app)
+
+# 限制最大请求体为 16MB
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -116,19 +123,24 @@ def load_ai_config():
     except Exception as e:
         logger.warning(f"读取AI配置文件失败: {e}")
 
-    if os.getenv("DEEPSEEK_API_KEY"):
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    dashscope_key = os.getenv("DASHSCOPE_API_KEY", "").strip()
+    volcano_key = os.getenv("VOLCANO_API_KEY", "").strip()
+    # 过滤掉占位符值（.env.example中的示例值）
+    _is_placeholder = lambda k: not k or k.startswith("sk-xxx") or k.startswith("your-") or "your-" in k
+    if deepseek_key and not _is_placeholder(deepseek_key):
         config["provider"] = "deepseek"
-        config["api_key"] = os.getenv("DEEPSEEK_API_KEY")
+        config["api_key"] = deepseek_key
         config["api_base_url"] = os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
         config["model"] = "deepseek-chat"
-    elif os.getenv("DASHSCOPE_API_KEY"):
+    elif dashscope_key and not _is_placeholder(dashscope_key):
         config["provider"] = "qwen"
-        config["api_key"] = os.getenv("DASHSCOPE_API_KEY")
+        config["api_key"] = dashscope_key
         config["api_base_url"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
         config["model"] = "qwen-vl-plus"
-    elif os.getenv("VOLCANO_API_KEY"):
+    elif volcano_key and not _is_placeholder(volcano_key):
         config["provider"] = "volcano"
-        config["api_key"] = os.getenv("VOLCANO_API_KEY")
+        config["api_key"] = volcano_key
         config["api_base_url"] = "https://ark.cn-beijing.volces.com/api/v3"
         config["model"] = "doubao-vision-pro-32k"
 
@@ -308,6 +320,30 @@ def db_get_all(where_clause="", params=None):
     sql += " ORDER BY id DESC"
     rows = conn.execute(sql, params or ()).fetchall()
     return [row_to_dict(r) for r in rows]
+
+def db_search(keyword="", category="", brand="", color="", status=""):
+    """数据库层多条件搜索，避免全量加载到内存"""
+    conditions = []
+    params = []
+    if keyword:
+        conditions.append("(material_name LIKE ? OR spec LIKE ? OR brand LIKE ? OR remark LIKE ?)")
+        kw = f"%{keyword}%"
+        params.extend([kw, kw, kw, kw])
+    if category:
+        conditions.append("category = ?")
+        params.append(category)
+    if brand:
+        conditions.append("brand LIKE ?")
+        params.append(f"%{brand}%")
+    if color:
+        conditions.append("filament_color = ?")
+        params.append(color)
+    if status:
+        conditions.append("status = ?")
+        params.append(status)
+
+    where = " AND ".join(conditions) if conditions else "1=1"
+    return db_get_all(where, tuple(params))
 
 def db_get_one(record_id):
     conn = get_db()
@@ -531,15 +567,19 @@ def speech_to_text_llm(audio_data):
 
 def speech_to_text(audio_data):
     config = get_ai_config()
+    provider = config.get("provider", "")
     if config.get("use_for_asr"):
         result = speech_to_text_llm(audio_data)
         if "error" not in result:
             return result
-        logger.warning(f"[ASR] 大模型ASR失败，回退到火山ASR: {result['error']}")
+        logger.warning(f"[ASR] LLM ASR failed: {result['error']}")
     result = speech_to_text_volcano(audio_data)
     if "error" not in result:
         return result
-    return {"error": "所有语音识别方式均失败，请检查AI API配置或火山ASR配置"}
+    # Build helpful error based on provider
+    if provider == "deepseek":
+        return {"error": "语音识别需要火山引擎ASR凭证（.env中配置VOLCANO_ASR_APP_ID和VOLCANO_ASR_TOKEN），或使用Chrome浏览器在HTTPS下访问以使用浏览器内置语音识别"}
+    return {"error": "语音识别失败。请在设置页面配置支持音频的AI模型（如通义千问），或配置火山引擎ASR凭证"}
 
 
 # ==================== AI 语音指令解析 ====================
@@ -701,7 +741,7 @@ def index():
 
 @app.route("/manifest.json")
 def manifest():
-    domain = os.getenv("DOMAIN", "https://your-domain.com")
+    domain = os.getenv("DOMAIN", "https://longzz.asia:19822")
     return jsonify({
         "name": "物料库存管理", "short_name": "库存管理",
         "description": "个人3D打印全品类物料库存管理系统",
@@ -714,20 +754,35 @@ def manifest():
         "scope": "/",
     })
 
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204
+
 @app.route("/sw.js")
 def service_worker():
     sw_js = """const CACHE_NAME = 'filament-manager-v3';
-const urlsToCache = ['/', '/static/app.css', '/static/app.js'];
+const urlsToCache = ['/'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
+  self.skipWaiting();
 });
 self.addEventListener('fetch', event => {
-  event.respondWith(caches.match(event.request).then(response => response || fetch(event.request)));
+  if (event.request.url.indexOf('/api/') !== -1) {
+    return;
+  }
+  event.respondWith(
+    caches.match(event.request).then(response => response || fetch(event.request).then(resp => {
+      return caches.open(CACHE_NAME).then(cache => {
+        cache.put(event.request, resp.clone());
+        return resp;
+      });
+    }))
+  );
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(
     keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-  )));
+  )).then(() => self.clients.claim()));
 });"""
     return app.response_class(sw_js, mimetype="application/javascript")
 
@@ -792,12 +847,7 @@ def inventory_search():
         keyword = request.args.get("keyword", "").strip()
         if not keyword:
             return jsonify({"success": False, "error": "请提供搜索关键词"}), 400
-        all_records = db_get_all()
-        results = []
-        for rec in all_records:
-            search_text = f"{rec.get('material_name','')} {rec.get('category','')} {rec.get('spec','')} {rec.get('brand','')} {rec.get('remark','')}"
-            if keyword.lower() in search_text.lower():
-                results.append(rec)
+        results = db_search(keyword=keyword)
         return jsonify({"success": True, "total": len(results), "items": results})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -879,7 +929,9 @@ def inbound_photo():
             return jsonify({"success": False, "error": "请上传图片"}), 400
         file = request.files["image"]
         filename = f"temp_{int(time.time())}_{file.filename}"
-        temp_path = os.path.join("/app/logs", filename)
+        temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, filename)
         file.save(temp_path)
         ai_result = recognize_image_with_ai(temp_path)
         try:
@@ -1585,7 +1637,7 @@ def import_inventory():
 
 @app.route("/api/inventory/filter", methods=["GET"])
 def inventory_filter():
-    """多维度筛选库存（品类/品牌/颜色/状态/关键词）"""
+    """多维度筛选库存（品类/品牌/颜色/状态/关键词）- 使用SQL层过滤"""
     try:
         category = request.args.get("category", "")
         brand = request.args.get("brand", "")
@@ -1595,28 +1647,13 @@ def inventory_filter():
         page = int(request.args.get("page", 1))
         page_size = int(request.args.get("page_size", 30))
 
-        conditions = []
-        params = []
-        if category:
-            conditions.append("category = ?")
-            params.append(category)
-        if status:
-            conditions.append("status = ?")
-            params.append(status)
-        if brand:
-            conditions.append("brand LIKE ?")
-            params.append(f"%{brand}%")
-
-        if conditions:
-            records = db_get_all(" AND ".join(conditions), tuple(params))
-        else:
-            records = db_get_all()
-
-        if keyword:
-            records = [r for r in records if keyword.lower() in
-                       f"{r.get('material_name','')} {r.get('spec','')} {r.get('brand','')} {r.get('remark','')}".lower()]
-        if color:
-            records = [r for r in records if (r.get("filament_color", "") or "").lower() == color.lower()]
+        records = db_search(
+            keyword=keyword if keyword else "",
+            category=category,
+            brand=brand,
+            color=color,
+            status=status,
+        )
 
         total = len(records)
         start = (page - 1) * page_size

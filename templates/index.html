@@ -51,7 +51,6 @@ body{
   padding:12px;padding-bottom:calc(var(--nav-height) + 16px);
   -webkit-overflow-scrolling:touch;
 }
-.page{display:none;padding:4px 0}
 .page.active{display:block}
 
 /* Cards */
@@ -314,6 +313,25 @@ body{
   .modal{border-radius:var(--radius);max-width:500px;margin:auto;max-height:80vh;align-self:center}
   .modal-overlay{align-items:center}
 }
+
+/* ===== Page Transitions ===== */
+.page{display:none;padding:4px 0;animation:fadeIn .2s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== Global Loading ===== */
+#globalLoading .spinner{
+  border-color:rgba(255,255,255,.2);
+  border-top-color:var(--accent);
+}
+
+/* ===== Scrollbar ===== */
+.main-content::-webkit-scrollbar{width:4px}
+.main-content::-webkit-scrollbar-track{background:transparent}
+.main-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ===== Selected item improvements ===== */
+.selected-item{transition:all .2s}
 
 /* ===== Scanner ===== */
 .scanner-container{text-align:center;margin-bottom:16px}
@@ -732,6 +750,26 @@ let pendingPhotoDraft=null;
 let pendingVoiceDraft=null;
 let aiConfigData=null;
 
+// ==================== Global Loading ====================
+let _loadingCount=0;
+function showLoading(){
+  _loadingCount++;
+  let el=document.getElementById('globalLoading');
+  if(!el){
+    el=document.createElement('div');
+    el.id='globalLoading';
+    el.innerHTML='<div class="spinner" style="position:fixed;top:50%;left:50%;margin:-18px 0 0 -18px;z-index:9999;width:36px;height:36px;border-width:4px"></div><div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.25);z-index:9998"></div>';
+    el.style.display='none';
+    document.body.appendChild(el);
+  }
+  el.style.display='block';
+}
+function hideLoading(){
+  _loadingCount=Math.max(0,_loadingCount-1);
+  const el=document.getElementById('globalLoading');
+  if(el&&_loadingCount===0)el.style.display='none';
+}
+
 // ==================== Toast ====================
 function showToast(msg,type=''){
   const c=document.getElementById('toastContainer');
@@ -741,11 +779,11 @@ function showToast(msg,type=''){
 }
 
 // ==================== API ====================
-async function apiGet(path){try{const r=await fetch(API_BASE+path);return await r.json()}catch(e){return{success:false,error:e.message}}}
-async function apiPost(path,data){try{const r=await fetch(API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return await r.json()}catch(e){return{success:false,error:e.message}}}
-async function apiPut(path,data){try{const r=await fetch(API_BASE+path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return await r.json()}catch(e){return{success:false,error:e.message}}}
-async function apiDelete(path){try{const r=await fetch(API_BASE+path,{method:'DELETE'});return await r.json()}catch(e){return{success:false,error:e.message}}}
-async function apiUpload(path,formData){try{const r=await fetch(API_BASE+path,{method:'POST',body:formData});return await r.json()}catch(e){return{success:false,error:e.message}}}
+async function apiGet(path){showLoading();try{const r=await fetch(API_BASE+path);return await r.json()}catch(e){return{success:false,error:e.message}}finally{hideLoading()}}
+async function apiPost(path,data){showLoading();try{const r=await fetch(API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return await r.json()}catch(e){return{success:false,error:e.message}}finally{hideLoading()}}
+async function apiPut(path,data){showLoading();try{const r=await fetch(API_BASE+path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return await r.json()}catch(e){return{success:false,error:e.message}}finally{hideLoading()}}
+async function apiDelete(path){showLoading();try{const r=await fetch(API_BASE+path,{method:'DELETE'});return await r.json()}catch(e){return{success:false,error:e.message}}finally{hideLoading()}}
+async function apiUpload(path,formData){showLoading();try{const r=await fetch(API_BASE+path,{method:'POST',body:formData});return await r.json()}catch(e){return{success:false,error:e.message}}finally{hideLoading()}}
 
 // ==================== Navigation ====================
 function switchPage(page){
@@ -802,10 +840,21 @@ function populateColorFilter(){
   const sel=document.getElementById('invColor');
   if(!sel)return;
   const colors=appConfig?.filament_colors||Object.keys(COLOR_MAP);
+  sel.innerHTML='<option value="">全部颜色</option>';
   colors.forEach(c=>{
     const hex=getColorHex(c);
-    sel.innerHTML+=`<option value="${c}">${hex?'&#x2588;&#x2588; ':''}${c}</option>`;
+    const swatchHtml=hex
+      ? `<span class="color-swatch color-swatch-sm" style="background-color:${hex};display:inline-block;vertical-align:middle;margin-right:4px"></span>`
+      : '';
+    sel.innerHTML+=`<option value="${c}" data-hex="${hex||''}">${c}</option>`;
   });
+  // Enhance select to show color swatches via CSS
+  const style = document.createElement('style');
+  style.textContent = `
+    #invColor option { padding: 4px 8px; }
+    #invColor optgroup, #invColor option { font-size: 13px; }
+  `;
+  document.head.appendChild(style);
 }
 
 function populateFilamentSelects(){
@@ -1104,14 +1153,56 @@ async function confirmPhotoDraft(){
   else{showToast(res.error||'入库失败','error')}
 }
 
-// ==================== Voice Inbound ====================
-function startVoiceInput(){
+let mediaRecorder=null,audioChunks=[],recordingTimer=null;
+
+async function startVoiceInput(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){showToast('当前浏览器不支持语音识别，请手动输入文本','error');return}
-  const rec=new SR();rec.lang='zh-CN';rec.interimResults=false;
-  rec.onresult=function(e){document.getElementById('voiceTextInput').value=e.results[0][0].transcript;parseVoiceInbound()};
-  rec.onerror=function(e){showToast('语音识别失败: '+e.error,'error')};
-  rec.start();showToast('请说话...');
+  if(SR){try{
+    const rec=new SR();rec.lang='zh-CN';rec.interimResults=false;
+    rec.onresult=function(e){document.getElementById('voiceTextInput').value=e.results[0][0].transcript;parseVoiceInbound()};
+    rec.onerror=function(e){showToast('语音识别失败('+e.error+')，已切换录音模式','warning');startMediaRecording()};
+    rec.start();showToast('请说话...');return;
+  }catch(e){}}
+  startMediaRecording();
+}
+
+async function startMediaRecording(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    let mimeType='audio/webm';
+    if(!MediaRecorder.isTypeSupported('audio/webm')){mimeType='audio/mp4';}
+    mediaRecorder=new MediaRecorder(stream,{mimeType:mimeType});
+    audioChunks=[];
+    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+    mediaRecorder.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(audioChunks,{type:mimeType});
+      await uploadAudioForASR(blob);
+    };
+    mediaRecorder.start();
+    showToast('录音中...请说话，最长10秒');
+    const btn=document.getElementById('btnVoiceRecord');
+    btn.textContent='停止录音';btn.onclick=stopMediaRecording;
+    recordingTimer=setTimeout(function(){if(mediaRecorder&&mediaRecorder.state==='recording')stopMediaRecording();},10000);
+  }catch(e){showToast('无法访问麦克风: '+e.message+'。请使用HTTPS或手动输入文本','error')}
+}
+
+function stopMediaRecording(){
+  if(recordingTimer){clearTimeout(recordingTimer);recordingTimer=null;}
+  if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();}
+  const btn=document.getElementById('btnVoiceRecord');
+  btn.textContent='开始语音输入';btn.onclick=startVoiceInput;
+  showToast('正在识别...');
+}
+
+async function uploadAudioForASR(blob){
+  const fd=new FormData();fd.append('audio',blob,'recording.'+(blob.type.includes('webm')?'webm':'mp4'));
+  try{showLoading();
+    const r=await fetch(API_BASE+'/api/inbound/asr',{method:'POST',body:fd});
+    const res=await r.json();hideLoading();
+    if(res.success){document.getElementById('voiceTextInput').value=res.draft.transcribed_text||'';parseVoiceInbound()}
+    else{showToast(res.error||'语音识别失败，请手动输入文本','error')}
+  }catch(e){hideLoading();showToast('语音上传失败: '+e.message+'，请手动输入文本','error')}
 }
 
 async function parseVoiceInbound(){
@@ -1400,11 +1491,17 @@ async function quickOutbound(recordId){
   }
 }
 
+function refreshCurrentPage(){
+  if(currentPage==='home')loadHome();
+  else if(currentPage==='inventory'){inventoryPage=1;loadInventory();}
+  else if(currentPage==='outbound')loadOutboundPage();
+}
+
 async function doQuickExact(recordId){
   const qty=parseFloat(document.getElementById('qo_exact_qty')?.value);
   if(!qty||qty<=0){showToast('请输入有效的消耗数量','error');return}
   const res=await apiPost('/api/outbound/exact',{record_id:recordId,consumed:qty});
-  if(res.success){showToast(`出库成功，消耗 ${qty}，剩余 ${res.remaining}`,'success');closeModalDirect();loadHome();if(currentPage==='inventory')loadInventory()}
+  if(res.success){showToast(`出库成功，消耗 ${qty}，剩余 ${res.remaining}`,'success');closeModalDirect();refreshCurrentPage()}
   else{showToast(res.error||'出库失败','error')}
 }
 
@@ -1414,7 +1511,7 @@ async function doQuickEstimate(recordId,currentQty){
   const consumed=currentQty-qty;
   if(!confirm(`确认出库：当前库存 ${currentQty}，剩余 ${qty}，消耗 ${consumed.toFixed(1)}？`))return;
   const res=await apiPost('/api/outbound/estimate',{record_id:recordId,remaining:qty});
-  if(res.success){showToast(`出库成功，消耗 ${res.consumed}，剩余 ${res.remaining}`,'success');closeModalDirect();loadHome();if(currentPage==='inventory')loadInventory()}
+  if(res.success){showToast(`出库成功，消耗 ${res.consumed}，剩余 ${res.remaining}`,'success');closeModalDirect();refreshCurrentPage()}
   else{showToast(res.error||'出库失败','error')}
 }
 
@@ -1444,7 +1541,7 @@ async function doQuickRestock(recordId){
   const qty=parseFloat(document.getElementById('restock_qty')?.value);
   if(!qty||qty<=0){showToast('请输入有效的入库数量','error');return}
   const res=await apiPost('/api/inventory/restock',{record_id:recordId,added:qty});
-  if(res.success){showToast(`入库成功，新增 ${qty}，当前库存 ${res.quantity}`,'success');closeModalDirect();loadHome();if(currentPage==='inventory')loadInventory()}
+  if(res.success){showToast(`入库成功，新增 ${qty}，当前库存 ${res.quantity}`,'success');closeModalDirect();refreshCurrentPage()}
   else{showToast(res.error||'入库失败','error')}
 }
 
@@ -1633,24 +1730,32 @@ async function onQRScanned(recordId){
 }
 
 async function confirmFilamentOut(id){
-  const res=await apiPost('/api/outbound/filament',{record_id:id});
+  // Fetch record detail to get filament info
+  const rec = await apiGet('/api/record/'+id);
+  if(!rec.success||!rec.item){showToast('获取物料信息失败','error');return}
+  const item = rec.item;
+  const res=await apiPost('/api/outbound/filament',{
+    filament_material:item.filament_material,
+    filament_color:item.filament_color,
+    filament_diameter:item.filament_diameter
+  });
   if(res.success){showToast('整卷出库成功','success');loadHome()}
   else showToast(res.error||'出库失败','error');
   document.getElementById('scanResult').innerHTML='';
 }
 
 async function doQRExact(id){
-  const qty=parseInt(document.getElementById('qrExactQty').value)||0;
+  const qty=parseFloat(document.getElementById('qrExactQty').value)||0;
   if(qty<=0){showToast('请输入有效的消耗数量','error');return}
-  const res=await apiPost('/api/outbound/exact',{record_id:id,consumed_quantity:qty});
+  const res=await apiPost('/api/outbound/exact',{record_id:id,consumed:qty});
   if(res.success){showToast('出库成功','success');loadHome()}
   else showToast(res.error||'出库失败','error');
   document.getElementById('scanResult').innerHTML='';
 }
 
 async function doQREstimate(id){
-  const qty=parseInt(document.getElementById('qrEstimateQty').value)||0;
-  const res=await apiPost('/api/outbound/estimate',{record_id:id,remaining_quantity:qty});
+  const qty=parseFloat(document.getElementById('qrEstimateQty').value)||0;
+  const res=await apiPost('/api/outbound/estimate',{record_id:id,remaining:qty});
   if(res.success){showToast('出库成功','success');loadHome()}
   else showToast(res.error||'出库失败','error');
   document.getElementById('scanResult').innerHTML='';
@@ -1746,11 +1851,11 @@ async function exportQRSelected(){
     const blob=await res.blob();
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;a.download=`qr_codes.${fmt}`;
+    a.href=url;a.download='qr_codes.xlsx';
     document.body.appendChild(a);a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    closeModal();
+    closeModalDirect();
     showToast('导出成功','success');
   }catch(e){
     showToast('导出失败: '+e.message,'error');
