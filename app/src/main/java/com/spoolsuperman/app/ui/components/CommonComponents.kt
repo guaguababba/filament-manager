@@ -61,6 +61,7 @@ fun StatCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryItemRow(
     item: InventoryItem,

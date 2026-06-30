@@ -31,23 +31,26 @@ class HomeViewModel @Inject constructor(
         loadHomeData()
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun loadHomeData() {
         viewModelScope.launch {
             combine(
-                repository.getTotalItemCount(),
-                repository.getTotalQuantity(),
-                repository.getCategoryCount(),
-                repository.getLowStockCount(),
-                repository.getRecentItems(10),
-                repository.getLowStockItems()
-            ) { items, qty, cats, lowCount, recent, lowItems ->
+                listOf<Flow<Any?>>(
+                    repository.getTotalItemCount(),
+                    repository.getTotalQuantity(),
+                    repository.getCategoryCount(),
+                    repository.getLowStockCount(),
+                    repository.getRecentItems(10),
+                    repository.getLowStockItems()
+                )
+            ) { values ->
                 _uiState.value = HomeUiState(
-                    totalItems = items,
-                    totalQuantity = qty ?: 0.0,
-                    categoryCount = cats,
-                    lowStockCount = lowCount,
-                    recentItems = recent,
-                    lowStockItems = lowItems,
+                    totalItems = values[0] as Int,
+                    totalQuantity = (values[1] as? Double) ?: 0.0,
+                    categoryCount = values[2] as Int,
+                    lowStockCount = values[3] as Int,
+                    recentItems = values[4] as List<InventoryItem>,
+                    lowStockItems = values[5] as List<InventoryItem>,
                     isLoading = false
                 )
             }.collect()

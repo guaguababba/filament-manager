@@ -61,12 +61,13 @@ fun OutboundScreen(
         )
 
         if (uiState.submitResult != null) {
+            val result = uiState.submitResult
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (uiState.submitResult.contains("成功"))
+                    containerColor = if (result.contains("成功"))
                         MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.errorContainer
                 )
@@ -76,12 +77,12 @@ fun OutboundScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        if (uiState.submitResult.contains("成功")) Icons.Default.CheckCircle
+                        if (result.contains("成功")) Icons.Default.CheckCircle
                         else Icons.Default.Error,
                         null
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(uiState.submitResult, Modifier.weight(1f))
+                    Text(result, Modifier.weight(1f))
                     TextButton(onClick = { viewModel.clearSubmitResult() }) { Text("确定") }
                 }
             }

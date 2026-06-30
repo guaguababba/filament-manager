@@ -193,7 +193,7 @@ class InventoryViewModel @Inject constructor(
         val sheet = workbook.createSheet("库存清单")
 
         val headerStyle = workbook.createCellStyle().apply {
-            fillForegroundColor = org.apache.poi.xssf.usermodel.IndexedColors.GREY_25_PERCENT.index
+            fillForegroundColor = org.apache.poi.ss.usermodel.IndexedColors.GREY_25_PERCENT.index
             fillPattern = org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND
             val font = workbook.createFont()
             font.bold = true
