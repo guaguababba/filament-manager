@@ -1,0 +1,11 @@
+# Add project specific ProGuard rules here.
+-keepattributes *Annotation*
+-keep class com.spoolsuperman.app.data.entity.** { *; }
+-keep class com.spoolsuperman.app.data.api.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn retrofit2.**
+-dontwarn com.google.zxing.**
+-dontwarn com.journeyapps.barcodescanner.**
+-dontwarn org.apache.poi.**
+-dontwarn org.openxmlformats.**
