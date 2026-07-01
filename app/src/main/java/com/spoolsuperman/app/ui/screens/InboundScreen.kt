@@ -106,7 +106,7 @@ fun InboundScreen(
         }
 
         if (formState.submitResult != null) {
-            val result = formState.submitResult
+            val result = formState.submitResult!!
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
