@@ -61,7 +61,7 @@ fun OutboundScreen(
         )
 
         if (uiState.submitResult != null) {
-            val result = uiState.submitResult
+            val result = uiState.submitResult!!
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
